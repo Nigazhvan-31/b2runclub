@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SEAT_FILTER = exports.INVALID = void 0;
 exports.parseCapacity = parseCapacity;
 exports.parseKids = parseKids;
+exports.parseType = parseType;
 exports.parseDiscount = parseDiscount;
 exports.seatsTaken = seatsTaken;
 exports.capacityOf = capacityOf;
@@ -69,6 +70,24 @@ function parseKids(raw) {
     if (!Number.isFinite(price) || price < 0)
         return exports.INVALID;
     return { kids_allowed: true, kid_price: price };
+}
+/**
+ * Longest a discipline may be.
+ *
+ * The picker offers a free-text option, so this is no longer a closed set —
+ * and a discipline is rendered in a badge on every card, so an essay pasted in
+ * would break the layout of pages nobody was editing. Enforced here because a
+ * limit that only exists in the form is not a limit.
+ */
+const MAX_TYPE_LENGTH = 24;
+/** Trims a discipline and rejects an empty or over-long one. */
+function parseType(raw) {
+    if (typeof raw !== "string")
+        return exports.INVALID;
+    const value = raw.trim();
+    if (value.length < 2 || value.length > MAX_TYPE_LENGTH)
+        return exports.INVALID;
+    return value;
 }
 /**
  * Normalises the group discount an organiser typed.
@@ -193,6 +212,13 @@ router.post("/", (0, auth_1.requireRole)(["ADMIN"]), async (req, res) => {
             res.status(400).json({ error: "Missing required fields for event creation" });
             return;
         }
+        const discipline = parseType(type);
+        if (discipline === exports.INVALID) {
+            res.status(400).json({
+                error: `A discipline must be between 2 and ${MAX_TYPE_LENGTH} characters.`,
+            });
+            return;
+        }
         const eventPrice = parseFloat(price);
         if (isNaN(eventPrice) || eventPrice < 0) {
             res.status(400).json({ error: "Invalid price value" });
@@ -211,7 +237,9 @@ router.post("/", (0, auth_1.requireRole)(["ADMIN"]), async (req, res) => {
         const event = await prisma_1.default.event.create({
             data: {
                 title,
-                type,
+                // The trimmed value, not the raw one: otherwise the guard
+                // above validates a string the row never receives.
+                type: discipline,
                 date_time: new Date(date_time),
                 location,
                 price: eventPrice,
@@ -451,8 +479,16 @@ router.put("/:id", (0, auth_1.requireRole)(["ADMIN"]), async (req, res) => {
         const dataToUpdate = {};
         if (title !== undefined)
             dataToUpdate.title = title;
-        if (type !== undefined)
-            dataToUpdate.type = type;
+        if (type !== undefined) {
+            const discipline = parseType(type);
+            if (discipline === exports.INVALID) {
+                res.status(400).json({
+                    error: `A discipline must be between 2 and ${MAX_TYPE_LENGTH} characters.`,
+                });
+                return;
+            }
+            dataToUpdate.type = discipline;
+        }
         if (date_time !== undefined)
             dataToUpdate.date_time = new Date(date_time);
         if (location !== undefined)

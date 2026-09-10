@@ -74,6 +74,24 @@ export function parseKids(raw: {
 }
 
 /**
+ * Longest a discipline may be.
+ *
+ * The picker offers a free-text option, so this is no longer a closed set —
+ * and a discipline is rendered in a badge on every card, so an essay pasted in
+ * would break the layout of pages nobody was editing. Enforced here because a
+ * limit that only exists in the form is not a limit.
+ */
+const MAX_TYPE_LENGTH = 24;
+
+/** Trims a discipline and rejects an empty or over-long one. */
+export function parseType(raw: unknown): string | typeof INVALID {
+    if (typeof raw !== "string") return INVALID;
+    const value = raw.trim();
+    if (value.length < 2 || value.length > MAX_TYPE_LENGTH) return INVALID;
+    return value;
+}
+
+/**
  * Normalises the group discount an organiser typed.
  *
  * Blank and zero both mean "no discount on this session" and are stored as null,
@@ -203,6 +221,14 @@ router.post("/", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response)
             return;
         }
 
+        const discipline = parseType(type);
+        if (discipline === INVALID) {
+            res.status(400).json({
+                error: `A discipline must be between 2 and ${MAX_TYPE_LENGTH} characters.`,
+            });
+            return;
+        }
+
         const eventPrice = parseFloat(price);
         if (isNaN(eventPrice) || eventPrice < 0) {
             res.status(400).json({ error: "Invalid price value" });
@@ -224,7 +250,9 @@ router.post("/", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response)
         const event = await prisma.event.create({
             data: {
                 title,
-                type,
+                // The trimmed value, not the raw one: otherwise the guard
+                // above validates a string the row never receives.
+                type: discipline,
                 date_time: new Date(date_time),
                 location,
                 price: eventPrice,
@@ -494,7 +522,16 @@ router.put("/:id", requireRole(["ADMIN"]), async (req: AuthRequest, res: Respons
 
         const dataToUpdate: any = {};
         if (title !== undefined) dataToUpdate.title = title;
-        if (type !== undefined) dataToUpdate.type = type;
+        if (type !== undefined) {
+            const discipline = parseType(type);
+            if (discipline === INVALID) {
+                res.status(400).json({
+                    error: `A discipline must be between 2 and ${MAX_TYPE_LENGTH} characters.`,
+                });
+                return;
+            }
+            dataToUpdate.type = discipline;
+        }
         if (date_time !== undefined) dataToUpdate.date_time = new Date(date_time);
         if (location !== undefined) dataToUpdate.location = location;
         if (price !== undefined) {

@@ -88,6 +88,22 @@ export function PartyIcon(p: IconProps) {
   );
 }
 
+/**
+ * Anything the club invents that has no icon of its own.
+ *
+ * A calendar pin rather than a sport: an organiser can name a discipline
+ * freely — yoga, a track meet, a kit sale — and guessing at a shape for it
+ * would be worse than not guessing.
+ */
+export function OtherDisciplineIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M12 21s6.5-5.4 6.5-10.2A6.5 6.5 0 0 0 5.5 10.8C5.5 15.6 12 21 12 21Z" />
+      <circle cx="12" cy="10.5" r="2.2" />
+    </Svg>
+  );
+}
+
 const DISCIPLINE_ICONS: Record<string, (p: IconProps) => JSX.Element> = {
   run: RunIcon,
   cycle: CycleIcon,
@@ -98,9 +114,16 @@ const DISCIPLINE_ICONS: Record<string, (p: IconProps) => JSX.Element> = {
   party: PartyIcon,
 };
 
-/** Falls back to the run icon for an unrecognised discipline. */
+/**
+ * Falls back to a neutral marker for an unrecognised discipline.
+ *
+ * It used to fall back to the running figure, which was safe while the list of
+ * disciplines was fixed. Now that an organiser can type their own, a yoga
+ * session or a kit sale would have shown a runner — a wrong picture rather
+ * than no picture.
+ */
 export function DisciplineIcon({ type, className }: { type: string; className?: string }) {
-  const Icon = DISCIPLINE_ICONS[type.toLowerCase()] ?? RunIcon;
+  const Icon = DISCIPLINE_ICONS[type.trim().toLowerCase()] ?? OtherDisciplineIcon;
   return <Icon className={className} />;
 }
 

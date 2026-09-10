@@ -8,6 +8,20 @@ import { Button, Checkbox, Field, Input, Modal, Select, Textarea } from "./ui";
 
 export const EVENT_TYPES = ["Run", "Cycle", "Swim", "Race", "Training", "Social", "Party"];
 
+/**
+ * Sentinel for the "something else" option in the discipline picker.
+ *
+ * Not a discipline anyone can be booked into — it only ever selects the text
+ * box beside it, and what gets saved is whatever the organiser typed there. The
+ * arrow is in the value so it cannot collide with a real discipline somebody
+ * names later.
+ */
+const CUSTOM_TYPE = "__custom__";
+
+/** Longest a hand-written discipline may be. Long enough to be descriptive,
+ *  short enough to fit the badge it renders in. */
+const MAX_TYPE_LENGTH = 24;
+
 /** Default start time for a session created from a calendar day. */
 const DEFAULT_START_HOUR = 6;
 const DEFAULT_START_MINUTE = 30;
@@ -48,6 +62,8 @@ const BLANK = {
   date_time: "",
   location: "",
   price: "0",
+  /** Free text, used only when `type` is the custom sentinel. */
+  custom_type: "",
   kids_allowed: false,
   kid_price: "0",
   /** Rupees off a booking of two or more. Empty means no group discount. */
@@ -91,6 +107,8 @@ export function EventFormModal({
 
   // Prefer the local object URL while uploading, then the stored URL.
   const coverPreview = localPreview ?? (form.cover_url || null);
+
+  const isCustomType = form.type === CUSTOM_TYPE;
 
   const minParty = event?.discount_min_party ?? 2;
 
@@ -176,7 +194,13 @@ export function EventFormModal({
     if (event) {
       setForm({
         title: event.title,
-        type: event.type,
+        /* An event already saved with a hand-written discipline has to come
+           back into the custom slot. A <select> handed a value none of its
+           options carry shows the first option instead, so this would
+           otherwise have silently re-badged a yoga session as a run the next
+           time anybody edited it. */
+        type: EVENT_TYPES.includes(event.type) ? event.type : CUSTOM_TYPE,
+        custom_type: EVENT_TYPES.includes(event.type) ? "" : event.type,
         date_time: toLocalInput(event.date_time),
         location: event.location,
         price: String(event.price),
@@ -212,6 +236,14 @@ export function EventFormModal({
     }
     if (Number.isNaN(price) || price < 0) {
       setError("Price must be zero or more.");
+      return;
+    }
+
+    /* Resolved once, here, so the guard and the value that gets sent cannot
+       come apart. The sentinel must never reach the database as a discipline. */
+    const discipline = isCustomType ? form.custom_type.trim() : form.type;
+    if (isCustomType && discipline.length < 2) {
+      setError("Give the discipline a name of at least 2 characters, or pick one from the list.");
       return;
     }
 
@@ -257,7 +289,7 @@ export function EventFormModal({
     try {
       const payload = {
         title: form.title.trim(),
-        type: form.type,
+        type: discipline,
         // Local input → ISO, so the backend stores the intended instant.
         date_time: new Date(form.date_time).toISOString(),
         location: form.location.trim(),
@@ -324,14 +356,40 @@ export function EventFormModal({
         </Field>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Discipline" htmlFor="ev-type">
+          <Field
+            label="Discipline"
+            htmlFor="ev-type"
+            hint={
+              isCustomType
+                ? "Shown on the event card and used to group the calendar, so keep it short."
+                : undefined
+            }
+          >
             <Select id="ev-type" value={form.type} onChange={set("type")}>
               {EVENT_TYPES.map((t) => (
                 <option key={t} value={t}>
                   {t}
                 </option>
               ))}
+              {/* Last, after the real disciplines — it is an escape hatch, not
+                  a peer of them. */}
+              <option value={CUSTOM_TYPE}>Something else…</option>
             </Select>
+
+            {/* The box only exists once "something else" is chosen: an empty
+                field beside a filled dropdown invites somebody to fill both. */}
+            {isCustomType && (
+              <Input
+                id="ev-custom-type"
+                aria-label="Custom discipline"
+                className="mt-2.5"
+                value={form.custom_type}
+                onChange={set("custom_type")}
+                maxLength={MAX_TYPE_LENGTH}
+                placeholder="Yoga, Track meet, Kit sale…"
+                autoFocus
+              />
+            )}
           </Field>
 
           <Field label="Date & start time" htmlFor="ev-date">
