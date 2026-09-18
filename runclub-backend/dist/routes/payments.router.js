@@ -9,6 +9,7 @@ const prisma_1 = __importDefault(require("../utils/prisma"));
 const auth_1 = require("../middleware/auth");
 const razorpay_1 = __importDefault(require("razorpay"));
 const secrets_1 = require("../utils/secrets");
+const time_1 = require("../utils/time");
 const razorpay = new razorpay_1.default({
     // Placeholder strings only; every call is gated behind RAZORPAY_MOCK_MODE.
     key_id: secrets_1.RAZORPAY_KEY_ID ?? "unconfigured",
@@ -161,6 +162,227 @@ router.post("/verify", (0, auth_1.requireRole)(["MEMBER", "VOLUNTEER", "ADMIN"])
     }
     catch (error) {
         res.status(500).json({ error: error.message || "Payment verification failed" });
+    }
+});
+/**
+ * Ask Razorpay whether a PENDING booking has in fact been paid, and settle it.
+ *
+ * Both existing routes to PAID need something to come to us: the webhook needs
+ * Razorpay to call in, and `/verify` needs the member's browser to survive
+ * Checkout and post the callback. When neither happens the money is captured at
+ * Razorpay and the registration sits at PENDING for ever — the ticket route
+ * refuses anything that is not PAID or FREE, so the member is charged and gets
+ * no QR code. Worse, Checkout will not let them retry: Razorpay rejects a
+ * second payment against an order it has already been paid for, so there is no
+ * way out from the member's side at all.
+ *
+ * Losing that callback is ordinary, not exotic. A UPI payment on a phone hands
+ * off to GPay or PhonePe, and the browser tab that has to run the callback is
+ * frequently evicted while the member is in the other app. Bigger totals — a
+ * party booking — are likelier to be paid that way than by a saved card, which
+ * is why group bookings were the ones noticed as stuck.
+ *
+ * So this asks the gateway directly, which is the only authoritative answer, and
+ * needs no signature because nothing in the request is trusted: the order id
+ * comes from our own row and the payment state comes from Razorpay over an
+ * authenticated call. Safe to run repeatedly, and safe to run on a booking that
+ * was never paid — it simply reports that nothing was found.
+ */
+async function settleFromGateway(registration) {
+    const list = (await razorpay.orders.fetchPayments(registration.razorpay_order_id));
+    const payments = list?.items ?? [];
+    // "captured" is money actually taken. "authorized" is money held but not
+    // collected, which happens when auto-capture is off — reported separately
+    // rather than treated as paid, because releasing a ticket for funds that
+    // were never captured hands away an entry.
+    const captured = payments.find((p) => p.status === "captured");
+    if (captured) {
+        return { outcome: "paid", paymentId: captured.id, amountPaise: captured.amount };
+    }
+    const authorized = payments.find((p) => p.status === "authorized");
+    if (authorized) {
+        return {
+            outcome: "authorized",
+            paymentId: authorized.id,
+            amountPaise: authorized.amount,
+        };
+    }
+    return { outcome: "nothing", attempts: payments.length };
+}
+/** Flips the row and tells the member, in the one place both callers need it. */
+async function markPaidFromGateway(registration, paymentId) {
+    const updated = await prisma_1.default.eventRegistration.update({
+        where: { id: registration.id },
+        data: { status: "PAID", razorpay_payment_id: paymentId },
+    });
+    await prisma_1.default.notification.create({
+        data: {
+            user_id: registration.user_id,
+            message: `Your payment for "${registration.event.title}" is confirmed — the QR ticket is ready. Scan it at the entrance.`,
+            link: `/api/events/registration/${registration.id}/ticket`,
+        },
+    });
+    return updated;
+}
+/**
+ * Settle one booking against the gateway.
+ *
+ * Open to the member who owns it as well as to admins: it cannot take a payment
+ * or invent one, it can only notice a payment that Razorpay already holds, and
+ * the member is the one who knows they paid.
+ */
+router.post("/reconcile/:registrationId", (0, auth_1.requireRole)(["MEMBER", "VOLUNTEER", "ADMIN"]), async (req, res) => {
+    try {
+        if (secrets_1.RAZORPAY_MOCK_MODE) {
+            res.status(400).json({
+                error: "Razorpay isn't configured on this server, so there is nothing to check against.",
+            });
+            return;
+        }
+        const registration = (await prisma_1.default.eventRegistration.findUnique({
+            where: { id: req.params.registrationId },
+            include: { event: true },
+        }));
+        if (!registration) {
+            res.status(404).json({ error: "Registration not found" });
+            return;
+        }
+        if (registration.user_id !== req.user.id && req.user.role !== "ADMIN") {
+            res.status(403).json({ error: "You can only check your own booking" });
+            return;
+        }
+        if (registration.status === "PAID" || registration.status === "FREE") {
+            res.json({
+                message: "This booking is already settled — your ticket is live.",
+                registration,
+                changed: false,
+            });
+            return;
+        }
+        if (!registration.razorpay_order_id) {
+            res.status(400).json({ error: "This booking has no payment order to check." });
+            return;
+        }
+        if (registration.razorpay_order_id.startsWith("order_mock_")) {
+            res.status(400).json({
+                error: "This booking carries a placeholder order that Razorpay never saw.",
+            });
+            return;
+        }
+        let result;
+        try {
+            result = await settleFromGateway(registration);
+        }
+        catch (err) {
+            const detail = err?.error?.description || err?.message || "unknown error";
+            console.error(`[reconcile] registration ${registration.id}: ${detail}`);
+            res.status(502).json({ error: `Could not reach Razorpay: ${detail}` });
+            return;
+        }
+        if (result.outcome === "paid") {
+            const updated = await markPaidFromGateway(registration, result.paymentId);
+            console.log(`[reconcile] registration ${registration.id} settled from gateway: ${result.paymentId}`);
+            res.json({
+                message: "Your payment was already with Razorpay — your ticket is live now.",
+                registration: updated,
+                changed: true,
+            });
+            return;
+        }
+        if (result.outcome === "authorized") {
+            res.status(409).json({
+                error: `Razorpay is holding ₹${(result.amountPaise / 100).toFixed(2)} on this booking but has not captured it (${result.paymentId}). An organiser needs to capture it in the Razorpay dashboard.`,
+                changed: false,
+            });
+            return;
+        }
+        res.status(404).json({
+            error: result.attempts === 0
+                ? "Razorpay has no payment against this booking, so nothing has been charged."
+                : "Razorpay has attempts against this booking but none of them completed, so nothing has been charged.",
+            changed: false,
+        });
+    }
+    catch (error) {
+        res.status(500).json({ error: error.message || "Could not check the payment" });
+    }
+});
+/**
+ * The same check across every stuck booking, for an organiser.
+ *
+ * Optional `event_id` narrows it to one session. Each booking is handled on its
+ * own so one gateway error does not abandon the rest of the sweep.
+ */
+router.post("/reconcile", (0, auth_1.requireRole)(["ADMIN"]), async (req, res) => {
+    try {
+        if (secrets_1.RAZORPAY_MOCK_MODE) {
+            res.status(400).json({
+                error: "Razorpay isn't configured on this server, so there is nothing to check against.",
+            });
+            return;
+        }
+        const eventId = typeof req.body?.event_id === "string" ? req.body.event_id : undefined;
+        const pending = (await prisma_1.default.eventRegistration.findMany({
+            where: {
+                status: "PENDING",
+                ...(eventId ? { event_id: eventId } : {}),
+            },
+            include: { event: true, user: { select: { name: true, email: true } } },
+        }));
+        const settled = [];
+        const held = [];
+        const failed = [];
+        let unpaid = 0;
+        let skipped = 0;
+        for (const registration of pending) {
+            if (!registration.razorpay_order_id ||
+                registration.razorpay_order_id.startsWith("order_mock_")) {
+                skipped++;
+                continue;
+            }
+            try {
+                const result = await settleFromGateway(registration);
+                if (result.outcome === "paid") {
+                    await markPaidFromGateway(registration, result.paymentId);
+                    settled.push({
+                        registration_id: registration.id,
+                        member: registration.user.name,
+                        event: registration.event.title,
+                        payment_id: result.paymentId,
+                        amount: result.amountPaise / 100,
+                    });
+                }
+                else if (result.outcome === "authorized") {
+                    held.push({
+                        registration_id: registration.id,
+                        member: registration.user.name,
+                        payment_id: result.paymentId,
+                        amount: result.amountPaise / 100,
+                    });
+                }
+                else {
+                    unpaid++;
+                }
+            }
+            catch (err) {
+                failed.push({
+                    registration_id: registration.id,
+                    error: err?.error?.description || err?.message || "unknown error",
+                });
+            }
+        }
+        console.log(`[reconcile] sweep: checked=${pending.length} settled=${settled.length} held=${held.length} unpaid=${unpaid} failed=${failed.length}`);
+        res.json({
+            checked: pending.length,
+            settled,
+            awaiting_capture: held,
+            unpaid,
+            skipped,
+            failed,
+        });
+    }
+    catch (error) {
+        res.status(500).json({ error: error.message || "Reconciliation failed" });
     }
 });
 /**
@@ -367,7 +589,7 @@ router.post("/refund/:registrationId", (0, auth_1.requireRole)(["ADMIN"]), async
         // already-refunded row instead of saying it was refunded.
         if (registration.refunded_at) {
             res.status(400).json({
-                error: `Already refunded — ₹${registration.refund_amount} on ${new Date(registration.refunded_at).toLocaleDateString("en-IN")}.`,
+                error: `Already refunded — ₹${registration.refund_amount} on ${(0, time_1.formatEventDate)(new Date(registration.refunded_at))}.`,
             });
             return;
         }

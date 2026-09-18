@@ -59,6 +59,19 @@ export function MyTickets() {
    */
   const payNow = async (reg: Registration) => {
     let orderId = reg.razorpay_order_id;
+    /**
+     * What this booking owes, in paise — the snapshot taken when it was made,
+     * never the event's per-head price.
+     *
+     * This used to be `event.price * 100`, which is only right for a single
+     * adult at full price: a party booking, a booking with a child on it, or one
+     * that took a group discount all owe something else. Razorpay charges the
+     * order's amount rather than this one, so the wrong number here did not
+     * overcharge anyone — but it is the figure Checkout is opened with, and
+     * keeping a guess next to an authoritative snapshot invites the next reader
+     * to trust it.
+     */
+    let amountPaise = reg.amount_due_paise ?? 0;
     /*
      * Prefer the key the backend reports over the build-time env var.
      *
@@ -108,6 +121,9 @@ export function MyTickets() {
         try {
           const fresh = await api.refreshPaymentOrder(reg.id);
           orderId = fresh.razorpay_order_id;
+          // The re-minted order is priced from the booking's own total; take the
+          // server's number rather than keeping a stale one from the list.
+          amountPaise = fresh.amount;
           setData((prev) =>
             (prev ?? []).map((r) =>
               r.id === reg.id ? { ...r, razorpay_order_id: fresh.razorpay_order_id } : r,
@@ -127,12 +143,52 @@ export function MyTickets() {
       }
     }
 
+    /* A booking made before amount_due_paise was recorded has no total to
+       settle against. Guessing one is the mistake described above, so say so
+       instead — an organiser can re-issue the entry. */
+    if (amountPaise <= 0) {
+      toast(
+        "This booking is missing its payment total — ask an organiser to re-issue it.",
+        "err",
+      );
+      return;
+    }
+
     setPayingId(reg.id);
+
+    /**
+     * Before charging anything, ask whether this booking has already been paid.
+     *
+     * A Checkout callback that never came back leaves the money at Razorpay and
+     * the booking at PENDING, and Razorpay then refuses a second payment against
+     * that order — so opening Checkout first would dead-end on "this order is
+     * already paid" and the member would still have no ticket. Asking the
+     * gateway first turns that case into a released ticket.
+     *
+     * Best-effort: if the check itself fails, fall through to Checkout rather
+     * than blocking somebody who genuinely still owes.
+     */
+    try {
+      const already = await api.reconcilePayment(reg.id);
+      if (ticketReady(already.registration.status)) {
+        setData((prev) =>
+          (prev ?? []).map((r) =>
+            r.id === reg.id ? { ...already.registration, event: r.event } : r,
+          ),
+        );
+        toast(already.message, "ok");
+        setPayingId(null);
+        return;
+      }
+    } catch {
+      // Nothing paid yet, or the check could not be made. Carry on to Checkout.
+    }
+
     try {
       const result = await openCheckout({
         keyId: keyId!,
         orderId: orderId!,
-        amountPaise: Math.round((reg.event?.price ?? 0) * 100),
+        amountPaise,
         eventTitle: reg.event?.title ?? "Event",
         userName: user?.name ?? "",
         userEmail: user?.email ?? "",

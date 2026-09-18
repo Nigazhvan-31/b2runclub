@@ -9,6 +9,7 @@ exports.startReminderScheduler = startReminderScheduler;
 exports.stopReminderScheduler = stopReminderScheduler;
 const prisma_1 = __importDefault(require("./prisma"));
 const mailer_1 = require("./mailer");
+const time_1 = require("./time");
 /**
  * Reminder sweeper.
  *
@@ -28,16 +29,6 @@ const mailer_1 = require("./mailer");
 const APP_URL = process.env.APP_URL || "http://localhost:5173";
 /** Offsets an organiser may choose, in hours. */
 exports.ALLOWED_OFFSETS = [168, 72, 48, 24, 12, 4, 2, 1];
-function formatWhen(date) {
-    return new Intl.DateTimeFormat("en-IN", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-    }).format(date);
-}
 /**
  * Sends any reminders that are currently due.
  * `eventId` limits the sweep to one event, used by the manual admin trigger.
@@ -87,7 +78,7 @@ async function sweepReminders(eventId) {
             const template = (0, mailer_1.reminderEmail)({
                 name: reg.user.name.split(" ")[0],
                 eventTitle: reminder.event.title,
-                when: formatWhen(start),
+                when: (0, time_1.formatEventWhen)(start),
                 location: reminder.event.location,
                 hoursBefore: reminder.hours_before,
                 ticketReady,
@@ -120,7 +111,7 @@ async function sweepReminders(eventId) {
                 await prisma_1.default.notification.create({
                     data: {
                         user_id: reg.user_id,
-                        message: `Reminder: "${reminder.event.title}" starts ${formatWhen(start)}.`,
+                        message: `Reminder: "${reminder.event.title}" starts ${(0, time_1.formatEventWhen)(start)}.`,
                         link: `/api/events/registration/${reg.id}/ticket`,
                     },
                 });

@@ -1,5 +1,6 @@
 import prisma from "./prisma";
 import { reminderEmail, sendMail } from "./mailer";
+import { formatEventWhen } from "./time";
 
 /**
  * Reminder sweeper.
@@ -29,17 +30,6 @@ export interface SweepSummary {
     failed: number;
     skipped: number;
     simulated: boolean;
-}
-
-function formatWhen(date: Date) {
-    return new Intl.DateTimeFormat("en-IN", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-    }).format(date);
 }
 
 /**
@@ -98,7 +88,7 @@ export async function sweepReminders(eventId?: string): Promise<SweepSummary> {
             const template = reminderEmail({
                 name: reg.user.name.split(" ")[0],
                 eventTitle: reminder.event.title,
-                when: formatWhen(start),
+                when: formatEventWhen(start),
                 location: reminder.event.location,
                 hoursBefore: reminder.hours_before,
                 ticketReady,
@@ -132,7 +122,7 @@ export async function sweepReminders(eventId?: string): Promise<SweepSummary> {
                 await prisma.notification.create({
                     data: {
                         user_id: reg.user_id,
-                        message: `Reminder: "${reminder.event.title}" starts ${formatWhen(start)}.`,
+                        message: `Reminder: "${reminder.event.title}" starts ${formatEventWhen(start)}.`,
                         link: `/api/events/registration/${reg.id}/ticket`,
                     },
                 });

@@ -476,6 +476,21 @@ export const api = {
       amount: number;
     }>(`/api/payments/order/${registrationId}/refresh`, { method: "POST" }),
 
+  /**
+   * Asks the backend to check a PENDING booking against Razorpay and settle it
+   * if the money is already there.
+   *
+   * The rescue for a payment whose Checkout callback never made it back — a UPI
+   * hand-off to another app is the common way to lose it. Razorpay refuses a
+   * second payment on an order it considers paid, so without this the member is
+   * charged with no ticket and no way to retry.
+   */
+  reconcilePayment: (registrationId: string) =>
+    request<{ message: string; registration: Registration; changed: boolean }>(
+      `/api/payments/reconcile/${registrationId}`,
+      { method: "POST" },
+    ),
+
   /** Hands a Checkout callback to the backend, which verifies the signature. */
   verifyPayment: (input: {
     razorpay_order_id: string;

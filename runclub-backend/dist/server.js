@@ -132,6 +132,7 @@ app.get("/health", (req, res) => {
 // Ticket rendering endpoint (returns the generated base64 QR code ticket)
 const prisma_1 = __importDefault(require("./utils/prisma"));
 const qr_1 = require("./utils/qr");
+const time_1 = require("./utils/time");
 /**
  * Escapes text bound for the ticket markup.
  *
@@ -249,7 +250,7 @@ app.get("/api/events/registration/:id/ticket", async (req, res) => {
             <p class="admits">${party.length === 1 ? "Admits one" : `Admits ${party.length}`}</p>
             <ul class="party">${partyRows}</ul>
             <div class="meta">
-              ${esc(reg.role_at_event)} · ${reg.event.date_time.toLocaleDateString()}<br/>
+              ${esc(reg.role_at_event)} · ${(0, time_1.formatEventDate)(reg.event.date_time)}<br/>
               ${esc(reg.event.location)}
             </div>
             <div>
