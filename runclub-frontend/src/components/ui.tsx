@@ -224,6 +224,86 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
   },
 );
 
+/**
+ * A password field with a show/hide control.
+ *
+ * One component rather than the toggle being rebuilt at each of the eight
+ * password fields in the app — login, sign-up, and the two change-password
+ * pairs. Rebuilt eight times is how six of them end up with it and two do not.
+ *
+ * Hidden by default, and the type flips rather than the value being re-rendered
+ * into a text input, so a password manager still sees a password field and
+ * nothing is ever copied into a second element.
+ *
+ * The button is deliberately `tabIndex={-1}`: tabbing from the password field
+ * should reach the submit button, which is what someone typing a password
+ * expects, not a control they did not ask for. It stays reachable by pointer
+ * and by screen reader, and its label says which way it will go.
+ */
+export const PasswordInput = forwardRef<
+  HTMLInputElement,
+  Omit<InputHTMLAttributes<HTMLInputElement>, "type">
+>(function PasswordInput({ className, ...rest }, ref) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div className="relative">
+      <input
+        ref={ref}
+        {...rest}
+        type={visible ? "text" : "password"}
+        className={cn(FIELD_BASE, "h-11 pr-11", className)}
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? "Hide password" : "Show password"}
+        aria-pressed={visible}
+        title={visible ? "Hide password" : "Show password"}
+        /* 44px of touch target on a phone, which is the smallest that can be
+           hit reliably, without the icon itself growing. */
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-ink-3 transition-colors hover:text-ink-2 focus-visible:text-ink-2 focus-visible:outline-none"
+      >
+        {visible ? (
+          // Eye with a slash — "hidden if you click this".
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+            <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+            <path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+            <line x1="2" y1="2" x2="22" y2="22" />
+          </svg>
+        ) : (
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+});
+
 export const Textarea = forwardRef<
   HTMLTextAreaElement,
   TextareaHTMLAttributes<HTMLTextAreaElement>

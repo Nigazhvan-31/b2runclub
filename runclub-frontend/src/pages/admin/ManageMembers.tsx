@@ -85,6 +85,26 @@ export function ManageMembers() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  /**
+   * The whole directory as a spreadsheet.
+   *
+   * Built by the server rather than from the rows on screen: this page filters
+   * and paginates, and an export that silently honoured the current search
+   * would hand somebody a partial list they believed was complete.
+   */
+  const exportMembers = async () => {
+    setExporting(true);
+    try {
+      await api.membersWorkbook();
+      toast("Member list exported.", "ok");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Export failed", "err");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const members = data ?? [];
 
@@ -148,6 +168,9 @@ export function ManageMembers() {
             <Link to="/admin/events" className={buttonClass("ghost", "md")}>
               Events
             </Link>
+            <Button variant="outline" loading={exporting} onClick={exportMembers}>
+              Export Excel
+            </Button>
           </div>
         }
       />

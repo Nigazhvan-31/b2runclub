@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { cn } from "../lib/format";
-import { Button, Field, Input, useToast } from "../components/ui";
+import { Button, Field, Input, PasswordInput, useToast } from "../components/ui";
 
 /**
  * A section that flips between a read view and an edit form.
@@ -346,9 +346,8 @@ export function AccountSettings() {
             htmlFor="acct-email-pw"
             hint="So a borrowed session can't take over the account."
           >
-            <Input
+            <PasswordInput
               id="acct-email-pw"
-              type="password"
               value={emailPassword}
               onChange={(e) => setEmailPassword(e.target.value)}
               autoComplete="current-password"
@@ -378,9 +377,8 @@ export function AccountSettings() {
       >
         <div className="space-y-4">
           <Field label="Current password" htmlFor="acct-pw-current">
-            <Input
+            <PasswordInput
               id="acct-pw-current"
-              type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               autoComplete="current-password"
@@ -389,9 +387,8 @@ export function AccountSettings() {
             />
           </Field>
           <Field label="New password" htmlFor="acct-pw-new" hint="At least 8 characters.">
-            <Input
+            <PasswordInput
               id="acct-pw-new"
-              type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               autoComplete="new-password"
@@ -399,9 +396,8 @@ export function AccountSettings() {
             />
           </Field>
           <Field label="Confirm new password" htmlFor="acct-pw-confirm">
-            <Input
+            <PasswordInput
               id="acct-pw-confirm"
-              type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               autoComplete="new-password"

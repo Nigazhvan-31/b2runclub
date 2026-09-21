@@ -22,8 +22,6 @@ import {
   useToast,
 } from "../../components/ui";
 import { api } from "../../lib/api";
-import { CLUB_SLUG } from "../../lib/brand";
-import { buildXlsx, downloadXlsx } from "../../lib/xlsx";
 import { eventTime, fullDate, inr, isPast, PAYMENT_META } from "../../lib/format";
 import type { ClubEvent, EventStatus, RosterRow } from "../../lib/types";
 import { useFetch } from "../../lib/useFetch";
@@ -330,33 +328,19 @@ function RosterModal({
     };
   }, [open, event]);
 
-  /** Excel, matching the dashboard's all-events export. */
+  /**
+   * The server's roster workbook.
+   *
+   * Built server-side rather than from `rows` here, because the file has to
+   * carry one line per *participant* with their mobile number and their
+   * questionnaire answers — none of which is in the table above, which lists
+   * bookings. The club uses this file to build the event's WhatsApp group, so
+   * the guests are the point of it.
+   */
   const exportRoster = async () => {
     if (!event) return;
     try {
-      // The parsed rows, not the raw CSV: this needs typed cells, and `rows` is
-      // already loaded for the table above.
-      const data = rows ?? (await api.roster(event.id));
-      if (data.length === 0) {
-        toast("Nobody has registered yet.", "info");
-        return;
-      }
-      const blob = buildXlsx({
-        header: ["Name", "Email", "Role", "Waiver Signed", "Payment Status", "Payment ID"],
-        rows: data.map((r) => [
-          r.name,
-          r.email,
-          r.role_at_event,
-          r.waiver_signed ? "Yes" : "No",
-          r.status,
-          r.payment_id,
-        ]),
-        sheetName: "Roster",
-      });
-      downloadXlsx(
-        `${CLUB_SLUG}-roster-${event.title.replace(/\W+/g, "-").toLowerCase()}.xlsx`,
-        blob,
-      );
+      await api.rosterWorkbook(event.id);
       toast("Roster exported.", "ok");
     } catch (err) {
       toast(err instanceof Error ? err.message : "Export failed", "err");

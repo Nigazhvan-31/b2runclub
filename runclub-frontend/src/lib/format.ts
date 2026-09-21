@@ -175,7 +175,7 @@ export const PAYMENT_META: Record<
     label: "Awaiting payment",
     icon: "◍",
     color: "var(--color-pending)",
-    note: "Ticket unlocks once Razorpay confirms the payment.",
+    note: "Your spot is held while payment is outstanding.",
   },
   FAILED: {
     label: "Failed",
@@ -183,11 +183,68 @@ export const PAYMENT_META: Record<
     color: "var(--color-failed)",
     note: "Payment did not go through. Contact an organiser.",
   },
+  EXPIRED: {
+    label: "Spot expired",
+    icon: "⏱",
+    color: "var(--color-failed)",
+    note: "Payment wasn't completed in time, so the spot was released. Register again if places are left.",
+  },
+  CANCELLED: {
+    label: "Cancelled",
+    icon: "×",
+    color: "var(--color-failed)",
+    note: "This registration was cancelled.",
+  },
+  DEACTIVATED: {
+    label: "Deactivated",
+    icon: "×",
+    color: "var(--color-failed)",
+    note: "An organiser switched this registration off.",
+  },
+  TEST: {
+    label: "Test registration",
+    icon: "⚑",
+    color: "var(--color-ink-3)",
+    note: "Created for testing — it doesn't hold a place.",
+  },
 };
 
 /** A ticket only renders for PAID/FREE — see the backend ticket route. */
 export function ticketReady(status: PaymentStatus) {
   return status === "PAID" || status === "FREE";
+}
+
+/**
+ * Whether a booking is over, whatever the reason.
+ *
+ * Mirrors `isClosed` on the backend. The member-facing consequence is that a
+ * closed booking offers no "Pay now" button and no ticket — it is a record of
+ * something that did not happen.
+ */
+export function bookingClosed(status: PaymentStatus) {
+  return (
+    status === "EXPIRED" ||
+    status === "CANCELLED" ||
+    status === "DEACTIVATED" ||
+    status === "TEST" ||
+    status === "FAILED"
+  );
+}
+
+/**
+ * "22 hours" / "35 minutes" — how long is left on an unpaid booking's hold.
+ *
+ * Rounded down, matching the server's `timeRemaining`, so the two never
+ * disagree by a minute in a way a member would notice and distrust.
+ */
+export function holdTimeLeft(deadline: string | null | undefined, from: Date = new Date()) {
+  if (!deadline) return null;
+  const ms = new Date(deadline).getTime() - from.getTime();
+  if (ms <= 0) return null;
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours} hour${hours === 1 ? "" : "s"}`;
 }
 
 export const ROLE_META: Record<string, { label: string; tint: string }> = {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { REMINDER_OFFSETS } from "../lib/types";
-import type { ClubEvent, EventStatus } from "../lib/types";
+import type { ClubEvent, EventStatus, QuestionDraft } from "../lib/types";
 import { cn, inr } from "../lib/format";
 import { SparkIcon } from "./icons";
 import { Button, Checkbox, Field, Input, Modal, Select, Textarea } from "./ui";
@@ -68,6 +68,10 @@ const BLANK = {
   kid_price: "0",
   /** Rupees off a booking of two or more. Empty means no group discount. */
   party_discount: "",
+  /** Party size the discount starts at. Empty means the club default. */
+  discount_min_party: "",
+  /** Minutes an unpaid booking holds its place. Empty means the club default. */
+  hold_minutes: "",
   status: "DRAFT" as EventStatus,
   description: "",
   /** Empty string means unlimited — the backend reads a blank as null. */
@@ -75,6 +79,131 @@ const BLANK = {
   /** Stored URL of the cover image. Empty means no cover. */
   cover_url: "",
 };
+
+/** Most questions one event may ask. Mirrors the server's limit. */
+const MAX_QUESTIONS = 10;
+
+/**
+ * The per-event questionnaire builder.
+ *
+ * Its own component because the event form is already long, and because this
+ * is the one part of it with nested list state — questions holding options —
+ * which reads badly inlined among flat fields.
+ *
+ * Options are edited as one comma-separated line rather than as a list of
+ * inputs with add/remove buttons. For two to four short words, which is what
+ * these always are ("Vegetarian, Non-Vegetarian"), a row of buttons is more
+ * clicking for the same result.
+ */
+function QuestionnaireEditor({
+  questions,
+  onChange,
+}: {
+  questions: QuestionDraft[];
+  onChange: (next: QuestionDraft[]) => void;
+}) {
+  const update = (i: number, patch: Partial<QuestionDraft>) =>
+    onChange(questions.map((q, j) => (j === i ? { ...q, ...patch } : q)));
+
+  return (
+    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="eyebrow text-ink-2">Questionnaire</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-ink-3">
+            Asked when somebody registers. Answers appear on the roster and in the Excel
+            download. Leave empty for no questions.
+          </p>
+        </div>
+      </div>
+
+      {questions.length > 0 && (
+        <div className="mt-4 space-y-3">
+          {questions.map((q, i) => (
+            <div key={i} className="space-y-2 rounded-lg border border-white/10 p-3">
+              <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <Input
+                    value={q.prompt}
+                    onChange={(e) => update(i, { prompt: e.target.value })}
+                    placeholder="e.g. Food preference"
+                    aria-label={`Question ${i + 1}`}
+                    maxLength={160}
+                  />
+                </div>
+                <div className="w-[8.5rem] shrink-0">
+                  <Select
+                    value={q.kind}
+                    onChange={(e) =>
+                      update(i, { kind: e.target.value as QuestionDraft["kind"] })
+                    }
+                    aria-label={`Question ${i + 1} answer type`}
+                  >
+                    <option value="CHOICE">Pick one</option>
+                    <option value="TEXT">Free text</option>
+                  </Select>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onChange(questions.filter((_, j) => j !== i))}
+                  aria-label={`Remove question ${i + 1}`}
+                  className="grid size-9 shrink-0 place-items-center rounded-lg border border-white/10 text-ink-3 transition-colors hover:border-[color:var(--color-failed)]/40 hover:text-[color:var(--color-failed)]"
+                >
+                  ×
+                </button>
+              </div>
+
+              {q.kind === "CHOICE" && (
+                <Input
+                  value={q.options.join(", ")}
+                  onChange={(e) => update(i, { options: e.target.value.split(",") })}
+                  placeholder="Vegetarian, Non-Vegetarian"
+                  aria-label={`Question ${i + 1} options, comma separated`}
+                />
+              )}
+
+              <label className="flex cursor-pointer items-center gap-2 text-[12px] text-ink-3">
+                <input
+                  type="checkbox"
+                  checked={q.required}
+                  onChange={(e) => update(i, { required: e.target.checked })}
+                  className="size-3.5 accent-[color:var(--color-gold)]"
+                />
+                Must be answered to register
+              </label>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Editing an event people have already booked: changing a question
+          discards the answers given to it, which is not recoverable and not
+          obvious. Said here rather than in a confirm dialog nobody reads. */}
+      {questions.length > 0 && (
+        <p className="mt-3 text-[12px] leading-relaxed text-ink-3">
+          Editing a question's wording or its options clears the answers already given to
+          it. Adding or removing other questions leaves those answers alone.
+        </p>
+      )}
+
+      {questions.length < MAX_QUESTIONS && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3"
+          onClick={() =>
+            onChange([
+              ...questions,
+              { prompt: "", kind: "CHOICE", options: [], required: false },
+            ])
+          }
+        >
+          + Add question
+        </Button>
+      )}
+    </div>
+  );
+}
 
 /**
  * Create/edit form for an event. Shared by the admin event manager and the
@@ -98,6 +227,7 @@ export function EventFormModal({
   const editing = Boolean(event);
   const [form, setForm] = useState(BLANK);
   const [offsets, setOffsets] = useState<number[]>([]);
+  const [questions, setQuestions] = useState<QuestionDraft[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const coverRef = useRef<HTMLInputElement>(null);
@@ -110,7 +240,12 @@ export function EventFormModal({
 
   const isCustomType = form.type === CUSTOM_TYPE;
 
-  const minParty = event?.discount_min_party ?? 2;
+  /* The live value: what the organiser is typing now, falling back to what the
+     event already applies. The preview below has to follow the field. */
+  const minParty =
+    Number(form.discount_min_party) >= 2
+      ? Number(form.discount_min_party)
+      : (event?.discount_min_party_effective ?? 2);
 
   /**
    * The discount worked through against this event's own entry fee.
@@ -209,16 +344,33 @@ export function EventFormModal({
         /* Blank, not "0": the field means "no discount" when empty, and
            prefilling a zero would read as a discount that had been set. */
         party_discount: event.party_discount ? String(event.party_discount) : "",
+        /* Same reasoning: only show a number the organiser actually set, so a
+           blank field reads as "the club default" rather than as a choice. The
+           server sends the resolved value in `discount_min_party`, which is why
+           this cannot simply mirror it — it would turn every default into an
+           explicit setting the first time anybody opened the form. */
+        discount_min_party:
+          event.discount_min_party != null ? String(event.discount_min_party) : "",
+        hold_minutes: event.hold_minutes != null ? String(event.hold_minutes) : "",
         status: event.status,
         description: event.description ?? "",
         capacity: event.capacity != null ? String(event.capacity) : "",
         cover_url: event.cover_url ?? "",
       });
+      setQuestions(
+        (event.questions ?? []).map((q) => ({
+          prompt: q.prompt,
+          kind: q.kind,
+          options: q.options,
+          required: q.required,
+        })),
+      );
     } else {
       setForm({
         ...BLANK,
         date_time: defaultDate ? dayKeyToLocalInput(defaultDate) : "",
       });
+      setQuestions([]);
     }
   }, [open, event, defaultDate]);
 
@@ -285,6 +437,45 @@ export function EventFormModal({
       capacity = n;
     }
 
+    /* Blank is "use the club default" for both of these, so only a typed value
+       is validated. Same rules as the server, checked here so the organiser is
+       told in the form rather than by a rejected save. */
+    const minPartyText = form.discount_min_party.trim();
+    let discountMinParty: number | null = null;
+    if (minPartyText !== "") {
+      const n = Number(minPartyText);
+      if (!Number.isInteger(n) || n < 2) {
+        setError("The group size for the discount must be a whole number of 2 or more.");
+        return;
+      }
+      discountMinParty = n;
+    }
+
+    const holdText = form.hold_minutes.trim();
+    let holdMinutes: number | null = null;
+    if (holdText !== "") {
+      const n = Number(holdText);
+      if (!Number.isInteger(n) || n < 5) {
+        setError("The payment hold must be a whole number of at least 5 minutes.");
+        return;
+      }
+      holdMinutes = n;
+    }
+
+    /* The questionnaire, checked before saving because the server rejects the
+       whole event otherwise and the organiser would lose the rest of the form
+       to a typo in one option list. */
+    for (const [i, q] of questions.entries()) {
+      if (q.prompt.trim().length < 3) {
+        setError(`Give question ${i + 1} a prompt of at least 3 characters.`);
+        return;
+      }
+      if (q.kind === "CHOICE" && q.options.filter((o) => o.trim()).length < 2) {
+        setError(`"${q.prompt.trim()}" needs at least 2 answer options.`);
+        return;
+      }
+    }
+
     setBusy(true);
     try {
       const payload = {
@@ -304,6 +495,17 @@ export function EventFormModal({
         /* Always sent, including as null, so clearing the discount on an edit
            actually clears it — the backend keys on `undefined`. */
         party_discount: partyDiscount,
+        discount_min_party: discountMinParty,
+        hold_minutes: holdMinutes,
+        /* Always sent, so emptying the questionnaire actually removes it.
+           Options are trimmed here rather than on every keystroke, so a
+           half-typed option does not vanish as the organiser types. */
+        questions: questions.map((q) => ({
+          prompt: q.prompt.trim(),
+          kind: q.kind,
+          options: q.kind === "CHOICE" ? q.options.map((o) => o.trim()).filter(Boolean) : [],
+          required: q.required,
+        })),
         // Always sent, including as an empty string, so clearing the cover on an
         // edit actually clears it — the backend keys on `undefined`, not falsy.
         cover_url: form.cover_url.trim() || null,
@@ -554,6 +756,24 @@ export function EventFormModal({
             />
           </Field>
 
+          {/* The qualifying size, editable here rather than fixed in code. */}
+          <Field
+            label="Applies from this many people"
+            htmlFor="ev-discount-min-party"
+            hint="Leave blank for the club default of 2."
+            className="mt-4 max-w-xs"
+          >
+            <Input
+              id="ev-discount-min-party"
+              type="number"
+              min="2"
+              step="1"
+              value={form.discount_min_party}
+              onChange={set("discount_min_party")}
+              placeholder="2"
+            />
+          </Field>
+
           {/* Worked through with this event's own numbers, because a flat
               discount against a per-head fee is easy to mis-set: the figure
               that reads reasonable for a couple can wipe out the entry. */}
@@ -561,6 +781,28 @@ export function EventFormModal({
             <p className="mt-3 text-[12px] leading-relaxed text-ink-3">{discountPreview}</p>
           )}
         </div>
+
+        {/* How long an unpaid booking keeps its place. */}
+        <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+          <Field
+            label="Hold unpaid bookings for (minutes)"
+            htmlFor="ev-hold-minutes"
+            hint="Blank uses the club default of 24 hours. After this, the spot is released and the member is told to register again."
+            className="max-w-xs"
+          >
+            <Input
+              id="ev-hold-minutes"
+              type="number"
+              min="5"
+              step="5"
+              value={form.hold_minutes}
+              onChange={set("hold_minutes")}
+              placeholder="1440"
+            />
+          </Field>
+        </div>
+
+        <QuestionnaireEditor questions={questions} onChange={setQuestions} />
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Status" htmlFor="ev-status">

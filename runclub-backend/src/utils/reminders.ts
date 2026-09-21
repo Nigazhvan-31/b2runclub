@@ -1,6 +1,7 @@
 import prisma from "./prisma";
 import { reminderEmail, sendMail } from "./mailer";
 import { formatEventWhen } from "./time";
+import { isTicketed, SEAT_HOLDING_STATUSES, shouldReceiveMail } from "./registrationStatus";
 
 /**
  * Reminder sweeper.
@@ -9,15 +10,30 @@ import { formatEventWhen } from "./time";
  *
  * Rules, chosen so behaviour is predictable rather than clever:
  *  - only PUBLISHED events that have not started yet,
- *  - a reminder is due once `now >= start - hours_before`, and stays due until
- *    the event starts. That means a server that was offline still delivers late
- *    rather than skipping, which is the friendlier failure,
+ *  - a reminder becomes due at `start - hours_before` and stops being due once
+ *    the window has been missed by more than GRACE_HOURS — see below,
  *  - blocked registrations are excluded — they are not attending,
- *  - FAILED payments are excluded; PENDING are included, since the nudge is
- *    partly the point,
+ *  - closed bookings are excluded: expired, cancelled, deactivated, test and
+ *    failed. PENDING are included, since the nudge is partly the point,
  *  - a unique (reminder_id, user_id) row is written per send, so a restart, an
  *    overlapping sweep or a manual run can never double-send.
  */
+
+/**
+ * How late a reminder may still be delivered.
+ *
+ * The rule used to be "stays due until the event starts", on the reasoning that
+ * a late reminder beats none. In practice that is how a member gets told their
+ * run starts "in 1 week" ninety minutes before the gun: the sweep only runs
+ * when the platform cron fires, so a 168-hour reminder that was missed stayed
+ * due for the whole week and went out with its original, now nonsensical,
+ * wording attached.
+ *
+ * Six hours is the compromise. A sweep delayed by a normal outage still
+ * delivers; one that missed the window by days stays quiet, which is the
+ * better of the two wrong answers.
+ */
+const GRACE_HOURS = 6;
 
 const APP_URL = process.env.APP_URL || "http://localhost:5173";
 
@@ -60,9 +76,10 @@ export async function sweepReminders(eventId?: string): Promise<SweepSummary> {
     for (const reminder of reminders) {
         const start = new Date(reminder.event.date_time);
         const dueAt = new Date(start.getTime() - reminder.hours_before * 3600_000);
+        const staleAfter = new Date(dueAt.getTime() + GRACE_HOURS * 3600_000);
 
         summary.checked++;
-        if (now < dueAt) {
+        if (now < dueAt || now > staleAfter) {
             summary.skipped++;
             continue;
         }
@@ -73,7 +90,10 @@ export async function sweepReminders(eventId?: string): Promise<SweepSummary> {
             where: {
                 event_id: reminder.event_id,
                 blocked_at: null,
-                status: { in: ["PAID", "FREE", "PENDING"] },
+                // Expired, cancelled, deactivated and test bookings are not
+                // attending, so they are not reminded. shouldReceiveMail below
+                // is the same rule applied again at send time.
+                status: { in: [...SEAT_HOLDING_STATUSES] },
             },
             include: { user: { select: { id: true, name: true, email: true } } },
         })) as any[];
@@ -84,7 +104,19 @@ export async function sweepReminders(eventId?: string): Promise<SweepSummary> {
                 continue;
             }
 
-            const ticketReady = reg.status === "PAID" || reg.status === "FREE";
+            /*
+             * Re-checked at send time, not just in the query. A sweep over a
+             * large event takes a while, and a booking can expire or be
+             * cancelled while it runs — the client's requirement is that no
+             * automated mail contradicts the booking's state at the moment it
+             * is triggered, and the query's snapshot is not that moment.
+             */
+            if (!shouldReceiveMail(reg)) {
+                summary.skipped++;
+                continue;
+            }
+
+            const ticketReady = isTicketed(reg.status);
             const template = reminderEmail({
                 name: reg.user.name.split(" ")[0],
                 eventTitle: reminder.event.title,
@@ -92,7 +124,11 @@ export async function sweepReminders(eventId?: string): Promise<SweepSummary> {
                 location: reminder.event.location,
                 hoursBefore: reminder.hours_before,
                 ticketReady,
-                amountDue: ticketReady ? null : `₹${reminder.event.price}`,
+                /* The booking's own total, not the event's per-head price. A
+                   party of four was being told it owed one entry fee. */
+                amountDue: ticketReady
+                    ? null
+                    : `₹${(reg.amount_due_paise / 100).toFixed(2)}`,
                 ticketUrl: `${APP_URL}/tickets`,
             });
 

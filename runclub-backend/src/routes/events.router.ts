@@ -2,10 +2,23 @@ import { Router, Response } from "express";
 import prisma from "../utils/prisma";
 import { AuthRequest, requireRole } from "../middleware/auth";
 import { requireVerified } from "../middleware/verified";
-import { DISCOUNT_MIN_PARTY, MAX_PARTY_SIZE, parseGuests, priceParty, seatCost } from "../utils/party";
+import {
+    discountMinParty,
+    MAX_PARTY_SIZE,
+    parseGuests,
+    priceParty,
+    seatCost,
+} from "../utils/party";
 import { deleteObject } from "../utils/storage";
 import Razorpay from "razorpay";
 import { ALLOWED_OFFSETS } from "../utils/reminders";
+import { holdDeadline } from "../utils/time";
+import { SEAT_HOLDING_STATUSES } from "../utils/registrationStatus";
+import {
+    parseAnswers,
+    parseQuestions,
+    toPublicQuestion,
+} from "../utils/questionnaire";
 import {
     RAZORPAY_KEY_ID,
     RAZORPAY_KEY_SECRET,
@@ -114,21 +127,39 @@ export function parseDiscount(raw: unknown): number | null | typeof INVALID {
  *  - A blocked entry frees its places: an organiser barring someone should open
  *    the spots back up.
  *  - FAILED covers failed and refunded payments, which likewise release them.
- *  - PENDING *does* hold places, so a rush of half-finished checkouts cannot
- *    oversell the event.
+ *  - EXPIRED, CANCELLED, DEACTIVATED and TEST are all absent, so none of them
+ *    consumes capacity. A test booking left on a capped session used to count
+ *    against real members.
+ *  - PENDING holds places, so a rush of half-finished checkouts cannot oversell
+ *    the event — but only until its hold runs out.
  *
- * Volunteers are no longer excluded here, and that is the important change. A
- * booking is now a party: the volunteer's own place is still free, but anyone
- * they bring is a participant and takes a place. Excluding the whole row would
- * have let a marshal walk four guests past a full event. The exemption moved
- * down to the guest level — see seatsTaken.
+ * That last clause is why this is a function of `now` rather than a constant. A
+ * PENDING booking past its `hold_expires_at` is expired in every sense that
+ * matters; the only thing it is waiting for is a sweep to stamp the status.
+ * Counting it until then would make availability depend on how recently the
+ * sweeper ran — and on Vercel's Hobby plan a cron fires once a day, which would
+ * turn a "24 hour" hold into anywhere between 24 and 48 hours of blocked
+ * capacity. Deciding it here makes the count right the moment the deadline
+ * passes, whatever the scheduler is doing, leaving the sweep responsible only
+ * for the durable record and the member's notification.
+ *
+ * Volunteers are not excluded here. A booking is a party: the volunteer's own
+ * place is free, but anyone they bring is a participant and takes a place.
+ * Excluding the whole row would let a marshal walk four guests past a full
+ * event, so the exemption lives at the guest level — see seatsTaken.
  */
-// Not `as const`: Prisma's generated filter types take a mutable string[], so a
-// readonly tuple is rejected.
-export const SEAT_FILTER = {
-    blocked_at: null,
-    status: { in: ["PAID", "FREE", "PENDING"] },
-};
+export function seatFilter(now: Date = new Date()) {
+    return {
+        blocked_at: null,
+        OR: [
+            { status: { in: ["PAID", "FREE"] } },
+            {
+                status: "PENDING",
+                OR: [{ hold_expires_at: null }, { hold_expires_at: { gt: now } }],
+            },
+        ],
+    };
+}
 
 /**
  * How many participant places an event has given away.
@@ -142,7 +173,7 @@ export const SEAT_FILTER = {
 export async function seatsTaken(eventId: string): Promise<number> {
     return prisma.registrationGuest.count({
         where: {
-            registration: { event_id: eventId, ...SEAT_FILTER },
+            registration: { event_id: eventId, ...seatFilter() },
             OR: [{ is_booker: false }, { registration: { role_at_event: { not: "VOLUNTEER" } } }],
         },
     });
@@ -174,6 +205,81 @@ function parseOffsets(raw: any): number[] | null {
         .map((v: any) => Number.parseInt(String(v), 10))
         .filter((n: number) => Number.isFinite(n) && ALLOWED_OFFSETS.includes(n));
     return [...new Set(cleaned)].sort((a, b) => b - a);
+}
+
+/**
+ * Reads a whole-number setting that may be left blank.
+ *
+ * Returns undefined for "not supplied", null for "explicitly cleared, use the
+ * club default", and INVALID for a value that is neither. An update needs all
+ * three: without the distinction, clearing a field and omitting it look the
+ * same and one of them silently does the wrong thing.
+ */
+function parseOptionalCount(raw: unknown, min: number): number | null | typeof INVALID | undefined {
+    if (raw === undefined) return undefined;
+    if (raw === null || raw === "") return null;
+    const n = Number.parseInt(String(raw), 10);
+    if (!Number.isFinite(n) || n < min) return INVALID;
+    return n;
+}
+
+/**
+ * Replaces an event's questionnaire with exactly `questions`.
+ *
+ * Rewritten wholesale rather than diffed, and that costs the existing answers
+ * for any question that changes — which is deliberate and is why the admin
+ * form warns before saving. Matching an edited question to its old answers is
+ * guesswork: if an organiser rewrites "Food preference" into "Shirt size", the
+ * answers underneath it mean nothing, and keeping them would put "Vegetarian"
+ * in a shirt-size column on the roster.
+ */
+async function syncQuestions(
+    eventId: string,
+    questions: { prompt: string; kind: string; options: string[]; required: boolean; position: number }[],
+) {
+    const existing = await prisma.eventQuestion.findMany({
+        where: { event_id: eventId },
+        orderBy: { position: "asc" },
+    });
+
+    /* Unchanged questions are left alone so their answers survive an edit that
+       only touched the question next to them. */
+    const sameShape = (a: any, b: (typeof questions)[number]) =>
+        a.prompt === b.prompt &&
+        a.kind === b.kind &&
+        a.required === b.required &&
+        a.options === JSON.stringify(b.options);
+
+    const matched = new Set<string>();
+    for (const [i, q] of questions.entries()) {
+        const hit = existing.find((e: any) => !matched.has(e.id) && sameShape(e, q));
+        if (hit) {
+            matched.add(hit.id);
+            if (hit.position !== i) {
+                await prisma.eventQuestion.update({ where: { id: hit.id }, data: { position: i } });
+            }
+        }
+    }
+
+    const stale = existing.filter((e: any) => !matched.has(e.id));
+    if (stale.length) {
+        await prisma.eventQuestion.deleteMany({ where: { id: { in: stale.map((e: any) => e.id) } } });
+    }
+
+    for (const [i, q] of questions.entries()) {
+        const already = existing.find((e: any) => matched.has(e.id) && sameShape(e, q));
+        if (already) continue;
+        await prisma.eventQuestion.create({
+            data: {
+                event_id: eventId,
+                prompt: q.prompt,
+                kind: q.kind,
+                options: JSON.stringify(q.options),
+                required: q.required,
+                position: i,
+            },
+        });
+    }
 }
 
 /** Replaces an event's reminders with exactly `offsets`. */
@@ -212,6 +318,27 @@ router.post("/", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response)
         const partyDiscount = parseDiscount(req.body?.party_discount);
         if (partyDiscount === INVALID) {
             res.status(400).json({ error: "A group discount must be 0 or more, or blank for none." });
+            return;
+        }
+        /* Two, not one: a "group" of one is every booking, which would make the
+           discount unconditional and is never what an organiser means. */
+        const minParty = parseOptionalCount(req.body?.discount_min_party, 2);
+        if (minParty === INVALID) {
+            res.status(400).json({
+                error: "The group size for the discount must be a whole number of 2 or more, or blank for the club default.",
+            });
+            return;
+        }
+        const holdMinutes = parseOptionalCount(req.body?.hold_minutes, 5);
+        if (holdMinutes === INVALID) {
+            res.status(400).json({
+                error: "The payment hold must be at least 5 minutes, or blank for the club default of 24 hours.",
+            });
+            return;
+        }
+        const parsedQuestions = parseQuestions(req.body?.questions);
+        if (!parsedQuestions.ok) {
+            res.status(400).json({ error: parsedQuestions.error });
             return;
         }
         const adminId = req.user!.id;
@@ -266,11 +393,16 @@ router.post("/", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response)
                 kids_allowed: kids.kids_allowed,
                 kid_price: kids.kid_price,
                 party_discount: partyDiscount,
+                discount_min_party: minParty ?? null,
+                hold_minutes: holdMinutes ?? null,
             },
         });
 
         const offsets = parseOffsets(req.body.reminder_offsets);
         if (offsets?.length) await syncReminders(event.id, offsets);
+        if (parsedQuestions.questions?.length) {
+            await syncQuestions(event.id, parsedQuestions.questions);
+        }
 
         res.status(211).json({
             message: "Event created successfully",
@@ -323,7 +455,7 @@ router.get("/", async (req: AuthRequest, res: Response): Promise<void> => {
              */
             const rows = await prisma.registrationGuest.findMany({
                 where: {
-                    registration: { event_id: { in: capped.map((e) => e.id) }, ...SEAT_FILTER },
+                    registration: { event_id: { in: capped.map((e) => e.id) }, ...seatFilter() },
                     OR: [
                         { is_booker: false },
                         { registration: { role_at_event: { not: "VOLUNTEER" } } },
@@ -350,7 +482,7 @@ router.get("/", async (req: AuthRequest, res: Response): Promise<void> => {
                         spots_left: null,
                         full: false,
                         max_party_size: MAX_PARTY_SIZE,
-                        discount_min_party: DISCOUNT_MIN_PARTY,
+                        discount_min_party_effective: discountMinParty(e),
                     };
                 }
                 const taken = counts.get(e.id) ?? 0;
@@ -360,7 +492,7 @@ router.get("/", async (req: AuthRequest, res: Response): Promise<void> => {
                     spots_left: Math.max(0, e.capacity - taken),
                     full: taken >= e.capacity,
                     max_party_size: MAX_PARTY_SIZE,
-                        discount_min_party: DISCOUNT_MIN_PARTY,
+                        discount_min_party_effective: discountMinParty(e),
                 };
             }),
         );
@@ -482,9 +614,13 @@ router.get("/:id", async (req: AuthRequest, res: Response): Promise<void> => {
         const id = req.params.id as string;
         const userRole = req.user ? req.user.role : "VISITOR";
 
-        const event = await prisma.event.findUnique({
+        const event = (await prisma.event.findUnique({
             where: { id },
-        });
+            /* The questionnaire travels with the event, because the booking
+               form has to render it and a second round trip to fetch it would
+               let the form open before its own questions arrive. */
+            include: { questions: { orderBy: { position: "asc" } } },
+        })) as any;
 
         if (!event) {
             res.status(404).json({ error: "Event not found" });
@@ -498,9 +634,10 @@ router.get("/:id", async (req: AuthRequest, res: Response): Promise<void> => {
 
         res.json({
             ...event,
+            questions: (event.questions ?? []).map(toPublicQuestion),
             ...(await capacityOf(event)),
             max_party_size: MAX_PARTY_SIZE,
-            discount_min_party: DISCOUNT_MIN_PARTY,
+            discount_min_party_effective: discountMinParty(event),
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message || "Failed to fetch event" });
@@ -518,6 +655,20 @@ router.put("/:id", requireRole(["ADMIN"]), async (req: AuthRequest, res: Respons
         if (!event) {
             res.status(404).json({ error: "Event not found" });
             return;
+        }
+
+        /* Parsed here, with every other validation, rather than next to the
+           write that uses it: a questionnaire rejected after the event row had
+           already been updated would answer 400 on a request that had in fact
+           changed the event. Undefined means "leave the questionnaire alone". */
+        let questionUpdate: ReturnType<typeof parseQuestions>["questions"];
+        if (req.body?.questions !== undefined) {
+            const parsed = parseQuestions(req.body.questions);
+            if (!parsed.ok) {
+                res.status(400).json({ error: parsed.error });
+                return;
+            }
+            questionUpdate = parsed.questions;
         }
 
         const dataToUpdate: any = {};
@@ -579,6 +730,29 @@ router.put("/:id", requireRole(["ADMIN"]), async (req: AuthRequest, res: Respons
             dataToUpdate.party_discount = discount;
         }
 
+        /* Same present-not-truthy rule: blanking the field means "use the club
+           default", which a truthiness check would read as "unchanged". */
+        if (req.body?.discount_min_party !== undefined) {
+            const minParty = parseOptionalCount(req.body.discount_min_party, 2);
+            if (minParty === INVALID) {
+                res.status(400).json({
+                    error: "The group size for the discount must be a whole number of 2 or more, or blank for the club default.",
+                });
+                return;
+            }
+            dataToUpdate.discount_min_party = minParty ?? null;
+        }
+        if (req.body?.hold_minutes !== undefined) {
+            const holdMinutes = parseOptionalCount(req.body.hold_minutes, 5);
+            if (holdMinutes === INVALID) {
+                res.status(400).json({
+                    error: "The payment hold must be at least 5 minutes, or blank for the club default of 24 hours.",
+                });
+                return;
+            }
+            dataToUpdate.hold_minutes = holdMinutes ?? null;
+        }
+
         if (req.body?.kids_allowed !== undefined) {
             const kids = parseKids(req.body);
             if (kids === INVALID) {
@@ -635,15 +809,23 @@ router.put("/:id", requireRole(["ADMIN"]), async (req: AuthRequest, res: Respons
         const offsets = parseOffsets(req.body.reminder_offsets);
         if (offsets !== null) await syncReminders(id, offsets);
 
+        // An empty list turns the questionnaire off; undefined never gets here.
+        if (questionUpdate !== undefined) await syncQuestions(id, questionUpdate);
+
         const reminders = await prisma.eventReminder.findMany({
             where: { event_id: id },
             orderBy: { hours_before: "desc" },
+        });
+        const questions = await prisma.eventQuestion.findMany({
+            where: { event_id: id },
+            orderBy: { position: "asc" },
         });
 
         res.json({
             message: "Event updated successfully",
             event: updatedEvent,
             reminder_offsets: reminders.map((r: any) => r.hours_before),
+            questions: questions.map(toPublicQuestion),
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message || "Failed to update event" });
@@ -714,9 +896,25 @@ router.post("/:id/register", requireRole(["MEMBER", "VOLUNTEER"]), requireVerifi
             return;
         }
 
-        // Check if user is already registered for this event
+        /*
+         * Already registered?
+         *
+         * Only a *live* booking blocks a new one. This used to match any row at
+         * all, which was right when the only way out of a registration was to
+         * delete it — but a booking can now end in EXPIRED, CANCELLED,
+         * DEACTIVATED or TEST, and matching those would mean a member whose
+         * hold ran out could never rebook. "Spot Expired – Register Again" has
+         * to actually permit registering again.
+         *
+         * Blocked rows are matched deliberately, whatever their status: being
+         * barred from an event is not something to be shed by rebooking.
+         */
         const existingRegistration = await prisma.eventRegistration.findFirst({
-            where: { event_id: eventId, user_id: userId },
+            where: {
+                event_id: eventId,
+                user_id: userId,
+                OR: [{ status: { in: [...SEAT_HOLDING_STATUSES] } }, { blocked_at: { not: null } }],
+            },
         });
 
         if (existingRegistration) {
@@ -749,12 +947,46 @@ router.post("/:id/register", requireRole(["MEMBER", "VOLUNTEER"]), requireVerifi
             return;
         }
 
-        const parsed = parseGuests(req.body?.guests, event);
+        /*
+         * The booker's own mobile number, which every guest ticking "use my
+         * number" inherits.
+         *
+         * Required at signup, so an account without one predates that rule.
+         * Refusing here rather than writing a party with null numbers keeps the
+         * roster's promise that every name on it has a number beside it — and
+         * the member can add theirs on the profile page in a few seconds.
+         */
+        const bookerPhone = (user as any).phone as string | null;
+        if (!bookerPhone) {
+            res.status(400).json({
+                error: "Add your mobile number to your profile before booking — the club uses it for the event WhatsApp group.",
+                needs_phone: true,
+            });
+            return;
+        }
+
+        const parsed = parseGuests(req.body?.guests, event, bookerPhone);
         if (!parsed.ok) {
             res.status(400).json({ error: parsed.error });
             return;
         }
         const extraGuests = parsed.guests!;
+
+        /* The event's own questions, and this member's answers to them.
+           Validated before anything is charged — a booking that cannot be
+           answered correctly should not reach a payment sheet. */
+        const eventQuestions = (
+            await prisma.eventQuestion.findMany({
+                where: { event_id: eventId },
+                orderBy: { position: "asc" },
+            })
+        ).map(toPublicQuestion);
+
+        const parsedAnswers = parseAnswers(req.body?.answers, eventQuestions);
+        if (!parsedAnswers.ok) {
+            res.status(400).json({ error: parsedAnswers.error });
+            return;
+        }
         const isVolunteer = userRole === "VOLUNTEER";
         const party = priceParty({ event, guests: extraGuests, isVolunteer });
 
@@ -876,6 +1108,11 @@ router.post("/:id/register", requireRole(["MEMBER", "VOLUNTEER"]), requireVerifi
          * The booker's row is built from their account name, never from the
          * request.
          */
+        /* Only an unpaid booking is on the clock. A free or comped entry owes
+           nothing, so there is no deadline to hold it to. */
+        const holdExpiresAt =
+            paymentStatus === "PENDING" ? holdDeadline((event as any).hold_minutes) : null;
+
         const registration = await prisma.eventRegistration.create({
             data: {
                 event_id: eventId,
@@ -888,14 +1125,30 @@ router.post("/:id/register", requireRole(["MEMBER", "VOLUNTEER"]), requireVerifi
                 adult_price_at_booking: party.adultPrice,
                 kid_price_at_booking: party.kidPrice,
                 discount_paise_at_booking: party.discountPaise,
+                hold_expires_at: holdExpiresAt,
                 guests: {
                     create: [
-                        { name: user.name, kind: "ADULT", is_booker: true },
-                        ...extraGuests.map((g) => ({ name: g.name, kind: g.kind })),
+                        {
+                            name: user.name,
+                            kind: "ADULT",
+                            is_booker: true,
+                            phone: bookerPhone,
+                        },
+                        ...extraGuests.map((g) => ({
+                            name: g.name,
+                            kind: g.kind,
+                            phone: g.phone,
+                        })),
                     ],
                 },
+                ...(parsedAnswers.answers?.length
+                    ? { answers: { create: parsedAnswers.answers } }
+                    : {}),
             },
-            include: { guests: { orderBy: [{ is_booker: "desc" }, { created_at: "asc" }] } },
+            include: {
+                guests: { orderBy: [{ is_booker: "desc" }, { created_at: "asc" }] },
+                answers: true,
+            },
         });
 
         res.status(211).json({
@@ -903,6 +1156,7 @@ router.post("/:id/register", requireRole(["MEMBER", "VOLUNTEER"]), requireVerifi
             registration,
             razorpay_key_id: isRazorpayMock ? "mock_key_id" : razorpayKeyId,
             amount: amountPaise,
+            hold_expires_at: holdExpiresAt,
             party: {
                 size: party.partySize,
                 adults: party.adults,

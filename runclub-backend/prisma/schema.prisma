@@ -97,6 +97,20 @@ model RegistrationGuest {
   registration_id String
 
   name            String
+
+  /// This participant's own mobile number, E.164.
+  ///
+  /// Collected per person, not per booking, because it is what the club adds to
+  /// the event's WhatsApp group and rings on the day — and the four people on
+  /// one booking are four people to reach. The form offers "use the booker's
+  /// number" for a child or a partner who has none of their own, which copies
+  /// the booker's number in here rather than leaving it null: the roster has to
+  /// state a reachable number for every name on it, and a null would read as
+  /// "not collected" when the answer is in fact known.
+  ///
+  /// Nullable only for the bookings taken before this was collected.
+  phone           String?
+
   /// "ADULT" or "KID". Decides which price applied and whether the event had to
   /// allow children.
   kind            String    @default("ADULT")
@@ -260,6 +274,21 @@ model Event {
   /// discount that swallows the fee makes the booking free.
   party_discount Float?
 
+  /// How many people a booking must cover before `party_discount` applies.
+  ///
+  /// Was a hardcoded 2. An organiser running a family session wants the
+  /// discount at three, and one running a couples' event wants it at two, and
+  /// neither should need a deployment to say so. Null means fall back to the
+  /// club default, so every event created before this keeps behaving as it did.
+  discount_min_party Int?
+
+  /// Minutes a booking may sit unpaid before its places go back on sale.
+  ///
+  /// Null means fall back to the club default (24 hours). Per-event because a
+  /// session that fills in an hour cannot afford a day-long hold, while a
+  /// trek booked six weeks out can.
+  hold_minutes Int?
+
   /// Free-text brief shown on the event page. Optional.
   description String?
   /// Maximum attendees. Null means no limit, which is the default so existing
@@ -287,6 +316,65 @@ model Event {
   shifts        EventShift[]
   checkpoints   Checkpoint[]
   photos        Photo[]
+  questions     EventQuestion[]
+}
+
+/// One organiser-written question asked at registration for a single event.
+///
+/// Per-event rather than a fixed set of columns because the questions are not
+/// predictable: a social night needs a food preference, a badminton mixer needs
+/// a playing level, and next month's event will need something nobody has
+/// thought of. A column per question would mean a migration each time.
+model EventQuestion {
+  id       String @id @default(uuid())
+  event_id String
+
+  /// What the member is asked, e.g. "Food preference".
+  prompt   String
+  /// "CHOICE" for a pick-one from `options`, "TEXT" for free text.
+  kind     String @default("CHOICE")
+  /// The answer choices for a CHOICE question, in display order, JSON-encoded.
+  ///
+  /// JSON in a text column rather than a child table: these are a short list of
+  /// short strings that are always read and written whole, never queried
+  /// individually, and a table would add a join to every registration read for
+  /// no gain. Empty for a TEXT question.
+  options  String @default("[]")
+  /// Whether registration is refused without an answer.
+  required Boolean @default(false)
+  /// Display order within the event's form.
+  position Int     @default(0)
+
+  created_at DateTime @default(now())
+
+  event   Event                @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  answers RegistrationAnswer[]
+
+  @@index([event_id])
+}
+
+/// One member's answer to one question, on one booking.
+///
+/// Hung off the registration rather than the user: the same person answers
+/// differently for different events, and a question only means anything in the
+/// context of the booking it was asked on.
+model RegistrationAnswer {
+  id              String @id @default(uuid())
+  registration_id String
+  question_id     String
+
+  /// The chosen option, or the typed text. Kept as given so an organiser
+  /// editing the option list later cannot rewrite what somebody answered.
+  answer          String
+
+  created_at DateTime @default(now())
+
+  registration EventRegistration @relation(fields: [registration_id], references: [id], onDelete: Cascade)
+  question     EventQuestion     @relation(fields: [question_id], references: [id], onDelete: Cascade)
+
+  /// One answer per question per booking; re-answering updates in place.
+  @@unique([registration_id, question_id])
+  @@index([registration_id])
 }
 
 // RESULTS Data — recorded by an organiser after the event.
@@ -417,6 +505,22 @@ model EventRegistration {
   user_id             String
   razorpay_order_id   String?       @unique // Referenced in payment flow
   razorpay_payment_id String?
+  /// Where this booking stands. One of:
+  ///
+  ///   PENDING      awaiting payment; its places are held until hold_expires_at
+  ///   PAID         settled
+  ///   FREE         nothing to pay (a comped volunteer, or a free session)
+  ///   FAILED       payment failed, or the booking was refunded
+  ///   EXPIRED      unpaid past the hold; places released, member may rebook
+  ///   CANCELLED    called off by the participant or on their behalf
+  ///   DEACTIVATED  switched off by an organiser
+  ///   TEST         created for testing; never counts anywhere real
+  ///
+  /// The last four are additive. The alternative — renaming PENDING to
+  /// AWAITING_PAYMENT to match the wording organisers use — would mean
+  /// rewriting live rows and every comparison against them for a change that is
+  /// only ever seen as a label, so the display name is applied in the UI and the
+  /// stored value left alone.
   status              String        @default("PENDING") // Updated by webhook
   role_at_event       String        @default("MEMBER") // Track participant role
   waiver_signed       Boolean       @default(false)
@@ -449,8 +553,35 @@ model EventRegistration {
   /// member was told they saved.
   discount_paise_at_booking Int @default(0)
 
+  /// When an unpaid booking stops holding its places.
+  ///
+  /// Set at creation for anything PENDING, null once there is nothing to wait
+  /// for. Stored rather than derived from a created_at plus a constant, because
+  /// the window is per-event and an organiser may change the event's setting
+  /// after somebody has booked — the deadline a member was given has to be the
+  /// one that is enforced.
+  hold_expires_at     DateTime?
+
+  /// When the booking was created. Needed by the payment reminder, which is
+  /// timed from the booking rather than from the event.
+  created_at          DateTime @default(now())
+
+  /// Set when the hold ran out and the places went back on sale.
+  expired_at          DateTime?
+  /// Set when a booking was called off or switched off. Which of the two it was
+  /// is in `status`; this is when.
+  cancelled_at        DateTime?
+  /// Free text an organiser can leave against a cancellation, so the next
+  /// person to look at the row knows why rather than guessing.
+  cancel_reason       String?
+
+  /// When the awaiting-payment nudge went out, so it goes out once.
+  payment_reminder_sent_at DateTime?
+
   /// Everyone this booking covers, the member included.
   guests              RegistrationGuest[]
+  /// Answers to the event's questionnaire, if it has one.
+  answers             RegistrationAnswer[]
 
   event               Event         @relation(fields: [event_id], references: [id])
   user                User          @relation(fields: [user_id], references: [id])

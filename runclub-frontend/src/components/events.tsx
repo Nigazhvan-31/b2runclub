@@ -244,6 +244,7 @@ export function RegisterDialog({
     if (open) {
       setContact(user?.emergency_contact ?? "");
       setGuests([]);
+      setAnswers({});
       setWaiver(false);
       setError(null);
       setStage("idle");
@@ -258,6 +259,30 @@ export function RegisterDialog({
   const [guests, setGuests] = useState<GuestDraft[]>([]);
   const maxParty = event.max_party_size ?? 6;
   const canAddMore = guests.length + 1 < maxParty;
+
+  /* The booker's given name, for the "use X's number" label. Their full name
+     on a checkbox reads as a form field rather than as an offer. */
+  const firstName = (user?.name ?? "my").split(" ")[0];
+
+  /* A child is nearly always reachable on a parent's number, and an adult
+     guest nearly always has their own — so each starts on the answer that is
+     usually right and can be changed. */
+  const newGuest = (kind: GuestDraft["kind"]): GuestDraft => ({
+    name: "",
+    kind,
+    phone: "",
+    use_booker_phone: kind === "KID",
+  });
+
+  /*
+   * Answers to the organiser's questions, keyed by question id.
+   *
+   * Keyed rather than positional because the event can be edited between the
+   * form being opened and submitted, and an index would then point at a
+   * different question than the member answered.
+   */
+  const questions = event.questions ?? [];
+  const [answers, setAnswers] = useState<Record<string, string>>({});
 
   const adults = 1 + guests.filter((g) => g.kind === "ADULT").length;
   const kids = guests.filter((g) => g.kind === "KID").length;
@@ -280,7 +305,7 @@ export function RegisterDialog({
    * the fee makes the booking free rather than owing the member money — the
    * same clamp the server applies.
    */
-  const minParty = event.discount_min_party ?? 2;
+  const minParty = event.discount_min_party_effective ?? 2;
   const discount =
     partySize >= minParty ? Math.min(Math.max(0, event.party_discount ?? 0), gross) : 0;
   const total = gross - discount;
@@ -303,6 +328,22 @@ export function RegisterDialog({
       setError(`Give everyone a name — guest ${unnamed + 1} is blank.`);
       return;
     }
+    const unreachable = guests.findIndex(
+      (g) => !g.use_booker_phone && g.phone.trim().length < 10,
+    );
+    if (unreachable !== -1) {
+      setError(
+        `Add a mobile number for ${guests[unreachable].name.trim() || `guest ${unreachable + 1}`}, or tick "use ${firstName}'s number".`,
+      );
+      return;
+    }
+    /* The same required-answer rule the server applies, applied first so the
+       member is told which question rather than being bounced by the API. */
+    const unanswered = questions.find((q) => q.required && !answers[q.id]?.trim());
+    if (unanswered) {
+      setError(`Please answer "${unanswered.prompt}".`);
+      return;
+    }
 
     setBusy(true);
 
@@ -314,7 +355,13 @@ export function RegisterDialog({
       const res = await api.registerForEvent(event.id, {
         waiver_signed: true,
         emergency_contact: contact.trim(),
-        guests: guests.map((g) => ({ name: g.name.trim(), kind: g.kind })),
+        guests: guests.map((g) => ({
+          name: g.name.trim(),
+          kind: g.kind,
+          phone: g.phone.trim(),
+          use_booker_phone: g.use_booker_phone,
+        })),
+        answers,
       });
       patchUser({ emergency_contact: contact.trim() });
       held = res.registration;
@@ -478,64 +525,119 @@ export function RegisterDialog({
             </div>
 
             {guests.map((g, i) => (
-              <div key={i} className="flex items-center gap-2">
-                {/*
-                  Widths on the wrappers, not on the controls.
+              <div
+                key={i}
+                className="space-y-2 rounded-lg border border-white/10 bg-white/[0.02] p-2.5"
+              >
+                <div className="flex items-center gap-2">
+                  {/*
+                    Widths on the wrappers, not on the controls.
 
-                  `cn` is a plain join with no tailwind-merge, and FIELD_BASE
-                  begins with `w-full` — so `w-28` on the Select never won, and
-                  with `shrink-0` it claimed the whole row and crushed the name
-                  field to a 30px square nobody could type in. A wrapper cannot
-                  lose that fight.
-                */}
-                <div className="min-w-0 flex-1">
-                  <Input
-                    value={g.name}
-                    onChange={(e) =>
-                      setGuests((list) =>
-                        list.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
-                      )
-                    }
-                    placeholder={g.kind === "KID" ? "Child's full name" : "Full name"}
-                    aria-label={`Guest ${i + 1} name`}
-                  />
-                </div>
-                {event.kids_allowed && (
-                  <div className="w-[7.5rem] shrink-0">
-                    <Select
-                      value={g.kind}
+                    `cn` is a plain join with no tailwind-merge, and FIELD_BASE
+                    begins with `w-full` — so `w-28` on the Select never won, and
+                    with `shrink-0` it claimed the whole row and crushed the name
+                    field to a 30px square nobody could type in. A wrapper cannot
+                    lose that fight.
+                  */}
+                  <div className="min-w-0 flex-1">
+                    <Input
+                      value={g.name}
                       onChange={(e) =>
                         setGuests((list) =>
-                          list.map((x, j) =>
-                            j === i ? { ...x, kind: e.target.value as GuestDraft["kind"] } : x,
-                          ),
+                          list.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
                         )
                       }
-                      aria-label={`Guest ${i + 1} is an adult or a child`}
-                    >
-                      <option value="ADULT">Adult</option>
-                      <option value="KID">Child</option>
-                    </Select>
+                      placeholder={g.kind === "KID" ? "Child's full name" : "Full name"}
+                      aria-label={`Guest ${i + 1} name`}
+                    />
                   </div>
+                  {event.kids_allowed && (
+                    <div className="w-[7.5rem] shrink-0">
+                      <Select
+                        value={g.kind}
+                        onChange={(e) =>
+                          setGuests((list) =>
+                            list.map((x, j) =>
+                              j === i ? { ...x, kind: e.target.value as GuestDraft["kind"] } : x,
+                            ),
+                          )
+                        }
+                        aria-label={`Guest ${i + 1} is an adult or a child`}
+                      >
+                        <option value="ADULT">Adult</option>
+                        <option value="KID">Child</option>
+                      </Select>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setGuests((list) => list.filter((_, j) => j !== i))}
+                    aria-label={`Remove guest ${i + 1}`}
+                    className="grid size-9 shrink-0 place-items-center rounded-lg border border-white/10 text-ink-3 transition-colors hover:border-[color:var(--color-failed)]/40 hover:text-[color:var(--color-failed)]"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                {/*
+                  This person's number.
+
+                  Hidden behind the checkbox rather than disabled-in-place: a
+                  greyed-out field still reads as something you were supposed to
+                  fill in. What is typed stays in state while it is hidden, so
+                  unticking gets it back rather than making somebody retype.
+                */}
+                {!g.use_booker_phone && (
+                  <Input
+                    value={g.phone}
+                    onChange={(e) =>
+                      setGuests((list) =>
+                        list.map((x, j) => (j === i ? { ...x, phone: e.target.value } : x)),
+                      )
+                    }
+                    placeholder="Mobile number"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="off"
+                    aria-label={`Guest ${i + 1} mobile number`}
+                  />
                 )}
-                <button
-                  type="button"
-                  onClick={() => setGuests((list) => list.filter((_, j) => j !== i))}
-                  aria-label={`Remove guest ${i + 1}`}
-                  className="grid size-9 shrink-0 place-items-center rounded-lg border border-white/10 text-ink-3 transition-colors hover:border-[color:var(--color-failed)]/40 hover:text-[color:var(--color-failed)]"
-                >
-                  ×
-                </button>
+
+                <label className="flex cursor-pointer items-center gap-2 text-[12px] text-ink-3">
+                  <input
+                    type="checkbox"
+                    checked={g.use_booker_phone}
+                    onChange={(e) =>
+                      setGuests((list) =>
+                        list.map((x, j) =>
+                          j === i ? { ...x, use_booker_phone: e.target.checked } : x,
+                        ),
+                      )
+                    }
+                    className="size-3.5 accent-[color:var(--color-gold)]"
+                  />
+                  Use {firstName}'s number
+                </label>
               </div>
             ))}
           </div>
+
+          {/*
+            Why the club wants these. Members supply a wrong number when they
+            assume it is a formality, so the reason sits next to the fields
+            rather than in a policy page nobody opens.
+          */}
+          <p className="mt-3 text-[12px] leading-relaxed text-ink-3">
+            Each participant's mobile number is used for the event WhatsApp group and for
+            reaching them on the day. Please enter the correct number for each person.
+          </p>
 
           {canAddMore ? (
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setGuests((l) => [...l, { name: "", kind: "ADULT" }])}
+                onClick={() => setGuests((l) => [...l, newGuest("ADULT")])}
               >
                 + Add adult
               </Button>
@@ -543,7 +645,7 @@ export function RegisterDialog({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setGuests((l) => [...l, { name: "", kind: "KID" }])}
+                  onClick={() => setGuests((l) => [...l, newGuest("KID")])}
                 >
                   + Add child
                 </Button>
@@ -613,6 +715,62 @@ export function RegisterDialog({
             </p>
           )}
         </div>
+
+        {/*
+          The organiser's questions for this event.
+
+          Rendered from the event rather than from anything hardcoded here, so
+          a badminton mixer asks about playing level and a social asks about
+          food without either of them being known to this component.
+        */}
+        {questions.length > 0 && (
+          <div className="rounded-xl border border-white/8 bg-surface-2/40 p-4">
+            <p className="eyebrow text-ink-2">A few questions</p>
+            <p className="mt-1 text-[12px] text-ink-3">
+              The organiser needs these to plan the session.
+            </p>
+
+            <div className="mt-4 space-y-4">
+              {questions.map((q) => (
+                <Field
+                  key={q.id}
+                  label={q.required ? `${q.prompt} *` : q.prompt}
+                  htmlFor={`q-${q.id}`}
+                >
+                  {q.kind === "CHOICE" ? (
+                    <Select
+                      id={`q-${q.id}`}
+                      value={answers[q.id] ?? ""}
+                      onChange={(e) =>
+                        setAnswers((a) => ({ ...a, [q.id]: e.target.value }))
+                      }
+                    >
+                      {/* An explicit empty option, so a required question
+                          cannot be satisfied by whichever choice happened to
+                          be listed first. */}
+                      <option value="">Choose one…</option>
+                      {q.options.map((o) => (
+                        <option key={o} value={o}>
+                          {o}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <Input
+                      id={`q-${q.id}`}
+                      value={answers[q.id] ?? ""}
+                      onChange={(e) =>
+                        setAnswers((a) => ({ ...a, [q.id]: e.target.value }))
+                      }
+                      placeholder="Your answer"
+                      maxLength={300}
+                    />
+                  )}
+                </Field>
+              ))}
+            </div>
+          </div>
+        )}
 
         <Field
           label="Emergency contact"

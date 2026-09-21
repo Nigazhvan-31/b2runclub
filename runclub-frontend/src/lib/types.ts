@@ -3,7 +3,22 @@
 
 export type Role = "ADMIN" | "MEMBER" | "VOLUNTEER" | "VISITOR";
 export type EventStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
-export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "FREE";
+/**
+ * Where a booking stands.
+ *
+ * PENDING is shown as "Awaiting Payment" — see `statusLabel` in lib/format.
+ * The stored value stays PENDING because renaming it would mean rewriting live
+ * rows for something only ever seen as a label.
+ */
+export type PaymentStatus =
+  | "PENDING"
+  | "PAID"
+  | "FAILED"
+  | "FREE"
+  | "EXPIRED"
+  | "CANCELLED"
+  | "DEACTIVATED"
+  | "TEST";
 
 export interface User {
   id: string;
@@ -91,8 +106,45 @@ export interface ClubEvent {
    * no group discount on this session.
    */
   party_discount?: number | null;
-  /** Smallest party that earns the discount. From the server, for the reason above. */
-  discount_min_party?: number;
+  /**
+   * Smallest party the organiser set for the discount. Null means they left it
+   * at the club default — kept distinct from the resolved value below so the
+   * admin form can show a blank field rather than turning every default into an
+   * explicit setting the first time somebody opens it.
+   */
+  discount_min_party?: number | null;
+  /** The value actually applied, defaults resolved. Use this for display. */
+  discount_min_party_effective?: number;
+  /**
+   * Minutes an unpaid booking holds its places. Null means the club default of
+   * 24 hours. Shown on the form so a member knows the deadline before booking.
+   */
+  hold_minutes?: number | null;
+  /**
+   * The organiser's questions for this event, in display order. Absent or
+   * empty when the event has no questionnaire.
+   */
+  questions?: EventQuestion[];
+}
+
+/** One organiser-written question asked during registration. */
+export interface EventQuestion {
+  id: string;
+  prompt: string;
+  /** "CHOICE" renders a pick-one; "TEXT" renders a single-line input. */
+  kind: "CHOICE" | "TEXT";
+  /** The choices, for a CHOICE question. Empty for TEXT. */
+  options: string[];
+  required: boolean;
+  position: number;
+}
+
+/** A question as the admin form edits it, before the server assigns an id. */
+export interface QuestionDraft {
+  prompt: string;
+  kind: "CHOICE" | "TEXT";
+  options: string[];
+  required: boolean;
 }
 
 export interface Registration {
@@ -109,6 +161,16 @@ export interface Registration {
   event?: ClubEvent;
   /** What this booking was charged, in paise. Never recomputed from the event. */
   amount_due_paise?: number;
+  /**
+   * When an unpaid booking's places go back on sale. Null once there is
+   * nothing to wait for — paid, free, or already closed.
+   */
+  hold_expires_at?: string | null;
+  /** Set when the hold ran out. */
+  expired_at?: string | null;
+  /** Set when the booking was cancelled or deactivated. */
+  cancelled_at?: string | null;
+  cancel_reason?: string | null;
   /** Everyone the booking covers, the member included. */
   guests?: RegistrationGuest[];
 }
@@ -130,6 +192,17 @@ export interface RegistrationGuest {
 export interface GuestDraft {
   name: string;
   kind: "ADULT" | "KID";
+  /** Their own mobile, unless `use_booker_phone` is set. */
+  phone: string;
+  /**
+   * Tick to reuse the booker's number for this person.
+   *
+   * Sent as a flag rather than by copying the booker's number into `phone` on
+   * the client, so the server resolves it from the account it already trusts.
+   * Copying here would let a tampered request attach any number to a guest
+   * while claiming it was the booker's.
+   */
+  use_booker_phone: boolean;
 }
 
 /** A row of the admin JSON roster for one event. */
@@ -158,6 +231,14 @@ export interface EventRegistrationRow {
   party_size?: number;
   /** What was actually charged for the whole party, in paise. */
   amount_due_paise?: number;
+  /** The status spelled the way organisers read it, from the server. */
+  status_label?: string;
+  /** When an unpaid booking's places go back on sale. */
+  hold_expires_at?: string | null;
+  expired_at?: string | null;
+  cancelled_at?: string | null;
+  cancel_reason?: string | null;
+  created_at?: string;
 }
 
 export interface Author {
@@ -522,6 +603,8 @@ export interface PartyMember {
   kind: "ADULT" | "KID";
   is_booker: boolean;
   admitted_at?: string | null;
+  /** Their own mobile, or the booker's if they used it. Null on old bookings. */
+  phone?: string | null;
 }
 
 export interface CheckInResult {

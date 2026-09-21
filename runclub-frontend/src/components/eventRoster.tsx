@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import { cn, inr, PAYMENT_META, ROLE_META } from "../lib/format";
+import { bookingClosed, cn, inr, PAYMENT_META, ROLE_META } from "../lib/format";
 import type { ClubEvent, EventRegistrationRow, PartyMember } from "../lib/types";
 import { useFetch } from "../lib/useFetch";
 import { LockIcon, SearchIcon, UsersIcon } from "./icons";
@@ -16,6 +16,7 @@ import {
   Field,
   Input,
   Modal,
+  Select,
   Skeleton,
   useToast,
 } from "./ui";
@@ -25,6 +26,9 @@ import {
  * Blocking leaves the payment status alone — it only revokes attendance — so an
  * accidental block is undone by readmitting them.
  */
+/** The statuses an organiser may retire a booking into. */
+type RetireStatus = "CANCELLED" | "DEACTIVATED" | "TEST";
+
 export function EventRoster({ event }: { event: ClubEvent }) {
   const toast = useToast();
   const load = useCallback(() => api.eventRegistrations(event.id), [event.id]);
@@ -36,6 +40,8 @@ export function EventRoster({ event }: { event: ClubEvent }) {
   );
   const [busy, setBusy] = useState(false);
   const [refunding, setRefunding] = useState<EventRegistrationRow | null>(null);
+  /** Which row is mid-status-change, so only its control is disabled. */
+  const [statusBusy, setStatusBusy] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [guestBusy, setGuestBusy] = useState<string | null>(null);
 
@@ -101,6 +107,37 @@ export function EventRoster({ event }: { event: ClubEvent }) {
       toast(err instanceof Error ? err.message : "Could not update that person", "err");
     } finally {
       setGuestBusy(null);
+    }
+  };
+
+  /**
+   * Retires a booking, or reinstates one.
+   *
+   * No confirm step, unlike Block: every one of these is reversible from the
+   * same row, and the places it frees can be taken back. A dialog in front of
+   * a reversible action mostly teaches people to dismiss dialogs.
+   */
+  const changeStatus = async (row: EventRegistrationRow, status: RetireStatus | "RESTORE") => {
+    setStatusBusy(row.id);
+    try {
+      const res = await api.setRegistrationStatus(row.id, status);
+      setData((prev) =>
+        (prev ?? []).map((r) =>
+          r.id === row.id
+            ? {
+                ...r,
+                status: res.registration.status,
+                cancelled_at: res.registration.cancelled_at ?? null,
+                expired_at: res.registration.expired_at ?? null,
+              }
+            : r,
+        ),
+      );
+      toast(res.message, "ok");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not update the booking", "err");
+    } finally {
+      setStatusBusy(null);
     }
   };
 
@@ -187,6 +224,8 @@ export function EventRoster({ event }: { event: ClubEvent }) {
           {visible.map((r, i) => {
             const meta = PAYMENT_META[r.status];
             const isBlocked = Boolean(r.blocked_at);
+            /* A retired booking: no places held, no mail, nothing to refund. */
+            const closed = bookingClosed(r.status);
             const party = r.guests ?? [];
             const isParty = party.length > 1;
             const inside = party.filter((g) => g.admitted_at).length;
@@ -315,6 +354,40 @@ export function EventRoster({ event }: { event: ClubEvent }) {
                     </Button>
                   )}
 
+                  {/*
+                    Retiring the booking, as distinct from blocking the person.
+                    A closed booking offers the way back instead, because the
+                    other actions do not apply to one.
+                  */}
+                  {closed ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 sm:flex-none"
+                      onClick={() => changeStatus(r, "RESTORE")}
+                      loading={statusBusy === r.id}
+                    >
+                      Reinstate
+                    </Button>
+                  ) : (
+                    <div className="w-[8.5rem] shrink-0">
+                      <Select
+                        value=""
+                        aria-label={`Retire ${r.name}'s booking`}
+                        disabled={statusBusy === r.id}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          if (next) changeStatus(r, next as RetireStatus);
+                        }}
+                      >
+                        <option value="">Set status…</option>
+                        <option value="CANCELLED">Cancelled</option>
+                        <option value="DEACTIVATED">Deactivated</option>
+                        <option value="TEST">Test registration</option>
+                      </Select>
+                    </div>
+                  )}
+
                   {isBlocked ? (
                     <Button
                       size="sm"
@@ -361,6 +434,15 @@ export function EventRoster({ event }: { event: ClubEvent }) {
                                   : g.kind === "KID"
                                     ? "child"
                                     : "guest"}
+                              </span>
+                              {/* The number, so an organiser building the
+                                  WhatsApp group can work from this list
+                                  rather than downloading the sheet for two
+                                  people. Bookings taken before numbers were
+                                  collected have none — shown as such, since
+                                  an empty gap reads as a rendering fault. */}
+                              <span className="ml-1.5 tnum text-[11.5px] text-ink-3">
+                                {g.phone ?? "no number"}
                               </span>
                             </span>
                             {isBlocked ? (

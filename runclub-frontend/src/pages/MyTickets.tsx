@@ -25,6 +25,7 @@ import {
   dateParts,
   eventTime,
   fullDate,
+  holdTimeLeft,
   inr,
   isPast,
   PAYMENT_META,
@@ -449,7 +450,20 @@ export function MyTickets() {
                           An organiser removed you from this event — your ticket is no longer valid.
                         </p>
                       ) : !ready ? (
-                        <p className="mt-2 text-[12px] leading-relaxed text-ink-3">{meta.note}</p>
+                        <p className="mt-2 text-[12px] leading-relaxed text-ink-3">
+                          {meta.note}
+                          {/* The deadline, where there is one. A member told
+                              only "awaiting payment" has no way to know the
+                              spot is on a clock. */}
+                          {reg.status === "PENDING" && holdTimeLeft(reg.hold_expires_at) && (
+                            <>
+                              {" "}
+                              <span style={{ color: "var(--color-pending)" }}>
+                                About {holdTimeLeft(reg.hold_expires_at)} left to pay.
+                              </span>
+                            </>
+                          )}
+                        </p>
                       ) : null}
                     </div>
 
@@ -470,8 +484,25 @@ export function MyTickets() {
                               loading={payingId === reg.id}
                               onClick={() => payNow(reg)}
                             >
-                              Pay {reg.event ? inr(reg.event.price) : "now"}
+                              {/* The booking's own total. Showing the event's
+                                  per-head price here told a party of four it
+                                  owed one entry fee. */}
+                              Pay{" "}
+                              {reg.amount_due_paise
+                                ? inr(reg.amount_due_paise / 100)
+                                : "now"}
                             </Button>
+                          )}
+                          {/* An expired booking's way back is to register
+                              again, so send them to the event rather than
+                              leaving them on a dead card. */}
+                          {reg.status === "EXPIRED" && !past && reg.event && (
+                            <Link
+                              to={`/events/${reg.event_id}`}
+                              className={buttonClass("gold", "sm")}
+                            >
+                              Register again
+                            </Link>
                           )}
                           <Button size="sm" variant="outline" onClick={() => setActive(reg)}>
                             Status

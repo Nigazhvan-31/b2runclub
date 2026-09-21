@@ -3,6 +3,15 @@ import prisma from "../utils/prisma";
 import { AuthRequest, requireRole } from "../middleware/auth";
 import { ALLOWED_OFFSETS, sweepReminders } from "../utils/reminders";
 import { mailerConfig, mailerConfigured, sendMail, testEmail, verifyMailer } from "../utils/mailer";
+import { sendWorkbook, slugForFilename } from "../utils/sheets";
+import { formatSheetDateTime, holdDeadline } from "../utils/time";
+import { toPublicQuestion } from "../utils/questionnaire";
+import {
+    ADMIN_SETTABLE_STATUSES,
+    type AdminSettableStatus,
+    statusLabel,
+} from "../utils/registrationStatus";
+import { sweepHolds } from "../utils/holds";
 
 const router = Router();
 
@@ -78,32 +87,165 @@ router.get("/events/:id/roster/export", requireRole(["ADMIN"]), async (req: Auth
             return;
         }
 
-        const registrations = await prisma.eventRegistration.findMany({
+        const registrations = (await prisma.eventRegistration.findMany({
             where: { event_id: eventId },
-            include: { user: true },
+            include: {
+                user: true,
+                guests: { orderBy: [{ is_booker: "desc" }, { created_at: "asc" }] },
+                answers: true,
+            },
             orderBy: { user: { name: "asc" } },
-        }) as any;
+        })) as any[];
 
-        // Generate CSV contents
-        const headers =
-            "Registration ID,User Name,User Email,Event Role,Waiver Signed,Payment Status,Payment ID,Blocked\n";
-        const rows = (registrations as any[])
-            .map((reg) => {
-                // Escape quotes to prevent CSV injection / parsing bugs
-                const escapedName = `"${reg.user.name.replace(/"/g, '""')}"`;
-                const escapedEmail = `"${reg.user.email.replace(/"/g, '""')}"`;
-                const blocked = reg.blocked_at ? "YES" : "NO";
-                return `${reg.id},${escapedName},${escapedEmail},${reg.role_at_event},${reg.waiver_signed},${reg.status},${reg.razorpay_payment_id || "N/A"},${blocked}`;
+        const questions = (
+            await prisma.eventQuestion.findMany({
+                where: { event_id: eventId },
+                orderBy: { position: "asc" },
             })
-            .join("\n");
+        ).map(toPublicQuestion);
 
-        const csvContent = headers + rows;
+        /*
+         * One row per *participant*, not per booking.
+         *
+         * This is the change that makes the file usable. The old export listed
+         * the person who paid and nobody else, so a party of four appeared as
+         * one line and the other three were invisible — which is no good when
+         * the file exists to build the event's WhatsApp group and to know who
+         * is actually turning up.
+         *
+         * Booking-level detail (payment, amount, status) repeats down the
+         * party's rows. Duplicated, but this is a spreadsheet to be filtered
+         * and sorted, and a blank cell that means "see the row above" stops
+         * meaning anything the moment somebody sorts by name.
+         */
+        const columns = [
+            { header: "Participant", width: 26 },
+            { header: "Mobile", width: 18 },
+            { header: "Type", width: 10 },
+            { header: "Booked by", width: 26 },
+            { header: "Booker email", width: 30 },
+            { header: "Status", width: 26 },
+            { header: "Event role", width: 12 },
+            { header: "Amount (₹)", width: 12 },
+            { header: "Payment ID", width: 22 },
+            { header: "Registered", width: 18 },
+            { header: "Blocked", width: 9 },
+            { header: "Checked in", width: 18 },
+            ...questions.map((q) => ({ header: q.prompt, width: 22 })),
+            { header: "Registration ID", width: 38 },
+        ];
 
-        res.setHeader("Content-Type", "text/csv");
-        res.setHeader("Content-Disposition", `attachment; filename=event_roster_${eventId}.csv`);
-        res.status(200).send(csvContent);
+        const rows: unknown[][] = [];
+
+        for (const reg of registrations) {
+            const answerFor = new Map<string, string>(
+                (reg.answers ?? []).map((a: any) => [a.question_id, a.answer]),
+            );
+
+            /* A booking taken before guests existed has no guest rows at all;
+               fall back to the booker so the roster never silently omits
+               somebody who is on the start line. */
+            const party =
+                reg.guests?.length > 0
+                    ? reg.guests
+                    : [{ name: reg.user.name, kind: "ADULT", is_booker: true, phone: reg.user.phone }];
+
+            for (const person of party) {
+                rows.push([
+                    person.name,
+                    /* Blank rather than the booker's number when it was never
+                       collected: a number that is a guess is worse than an
+                       obvious gap, because only one of the two gets chased. */
+                    person.phone ?? (person.is_booker ? reg.user.phone ?? "" : ""),
+                    person.is_booker ? "Booker" : person.kind === "KID" ? "Child" : "Guest",
+                    reg.user.name,
+                    reg.user.email,
+                    statusLabel(reg.status),
+                    reg.role_at_event,
+                    (reg.amount_due_paise / 100).toFixed(2),
+                    reg.razorpay_payment_id || "",
+                    formatSheetDateTime(reg.created_at),
+                    reg.blocked_at ? "YES" : "NO",
+                    formatSheetDateTime(person.admitted_at ?? null),
+                    ...questions.map((q) => answerFor.get(q.id) ?? ""),
+                    reg.id,
+                ]);
+            }
+        }
+
+        await sendWorkbook(res, {
+            filename: `roster-${slugForFilename(event.title)}.xlsx`,
+            sheetName: "Roster",
+            columns,
+            rows,
+        });
     } catch (error: any) {
         res.status(500).json({ error: error.message || "Failed to export roster" });
+    }
+});
+
+/**
+ * 2c. The whole membership as a spreadsheet (Admin only).
+ *
+ * Separate from the roster: that answers "who is coming to this event", this
+ * answers "who is in the club". Both were asked for, and merging them would
+ * mean one file that is wrong for both jobs.
+ */
+router.get("/members/export", requireRole(["ADMIN"]), async (_req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const members = (await prisma.user.findMany({
+            orderBy: { name: "asc" },
+            include: {
+                registrations: {
+                    select: { status: true, blocked_at: true, amount_due_paise: true },
+                },
+            },
+        })) as any[];
+
+        const rows = members.map((u) => {
+            /* Counted here rather than in SQL because the same three numbers
+               are wanted per member and the membership is in the hundreds, not
+               the millions. A groupBy would be faster and much harder to read. */
+            const live = u.registrations.filter(
+                (r: any) => !r.blocked_at && (r.status === "PAID" || r.status === "FREE"),
+            );
+            const paisePaid = live.reduce((sum: number, r: any) => sum + r.amount_due_paise, 0);
+
+            return [
+                u.name,
+                u.email,
+                u.phone ?? "",
+                u.emergency_contact ?? "",
+                u.role,
+                u.email_verified_at ? "Verified" : "Not verified",
+                formatSheetDateTime(u.email_verified_at),
+                String(live.length),
+                (paisePaid / 100).toFixed(2),
+                formatSheetDateTime(u.created_at),
+                u.id,
+            ];
+        });
+
+        await sendWorkbook(res, {
+            filename: "b2-club-members.xlsx",
+            sheetName: "Members",
+            columns: [
+                { header: "Name", width: 26 },
+                { header: "Email", width: 30 },
+                { header: "Mobile", width: 18 },
+                { header: "Emergency contact", width: 20 },
+                { header: "Role", width: 12 },
+                { header: "Email status", width: 14 },
+                { header: "Verified on", width: 18 },
+                { header: "Events attended", width: 15 },
+                { header: "Total paid (₹)", width: 14 },
+                { header: "Joined", width: 18 },
+                { header: "Member ID", width: 38 },
+            ],
+            rows,
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message || "Failed to export members" });
     }
 });
 
@@ -155,12 +297,22 @@ router.get("/events/:id/registrations", requireRole(["ADMIN"]), async (req: Auth
                 refund_amount: r.refund_amount,
                 // Only what the roster renders — no admitted_by, which would
                 // name one crew member to every admin looking at the list.
+                status_label: statusLabel(r.status),
+                // The hold, so an organiser can see which bookings are about to
+                // release their places rather than discovering it afterwards.
+                hold_expires_at: r.hold_expires_at,
+                expired_at: r.expired_at,
+                cancelled_at: r.cancelled_at,
+                cancel_reason: r.cancel_reason,
+                created_at: r.created_at,
                 guests: (r.guests ?? []).map((g: any) => ({
                     id: g.id,
                     name: g.name,
                     kind: g.kind,
                     is_booker: g.is_booker,
                     admitted_at: g.admitted_at,
+                    // The number the club adds to the WhatsApp group.
+                    phone: g.phone,
                 })),
                 party_size: (r.guests ?? []).length || 1,
                 amount_due_paise: r.amount_due_paise,
@@ -237,7 +389,142 @@ router.put("/registrations/:id/block", requireRole(["ADMIN"]), async (req: AuthR
     }
 });
 
-/** 2d. Reminder schedule and delivery status for one event (Admin only). */
+/**
+ * 2d. Cancel, deactivate or flag a registration as a test (Admin only).
+ *
+ * Distinct from blocking, which bars a *person* while leaving their booking
+ * intact. This retires the *booking*: its places go back on sale, it stops
+ * receiving mail, and it drops out of the counts — but the row survives, with
+ * a reason attached, because an organiser reconciling a half-empty event needs
+ * to know the difference between "nobody booked" and "four test bookings were
+ * cleaned up".
+ *
+ * Restoring is allowed and goes back to PENDING or PAID depending on whether
+ * money was taken, because the alternative — a one-way door — means the first
+ * misclick costs a member their place.
+ */
+router.put("/registrations/:id/status", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const registrationId = req.params.id as string;
+        const { status, reason } = req.body ?? {};
+
+        const restoring = status === "RESTORE";
+        if (!restoring && !ADMIN_SETTABLE_STATUSES.includes(status as AdminSettableStatus)) {
+            res.status(400).json({
+                error: `\`status\` must be one of ${ADMIN_SETTABLE_STATUSES.join(", ")}, or RESTORE.`,
+            });
+            return;
+        }
+
+        const registration = (await prisma.eventRegistration.findUnique({
+            where: { id: registrationId },
+            include: { event: true, user: { select: { id: true, name: true } } },
+        })) as any;
+
+        if (!registration) {
+            res.status(404).json({ error: "Registration not found" });
+            return;
+        }
+
+        if (restoring) {
+            /*
+             * Where a restored booking lands is decided by the money, not by
+             * what it was before. A cancelled booking that had been paid is
+             * still paid — Razorpay holds the payment either way — so putting
+             * it back to PENDING would ask the member to pay twice. One with
+             * no payment against it goes back to awaiting payment, and gets a
+             * fresh hold rather than its original expired one.
+             */
+            const wasPaid = Boolean(registration.razorpay_payment_id);
+            const updated = await prisma.eventRegistration.update({
+                where: { id: registrationId },
+                data: {
+                    status: wasPaid ? "PAID" : "PENDING",
+                    cancelled_at: null,
+                    cancel_reason: null,
+                    expired_at: null,
+                    hold_expires_at: wasPaid ? null : holdDeadline(registration.event.hold_minutes),
+                    payment_reminder_sent_at: null,
+                },
+            });
+
+            await prisma.notification.create({
+                data: {
+                    user_id: registration.user_id,
+                    message: `Your registration for "${registration.event.title}" has been reinstated${
+                        wasPaid ? " — your ticket is live again." : ". Payment is still outstanding."
+                    }`,
+                    link: "/tickets",
+                },
+            });
+
+            res.json({
+                message: `${registration.user.name}'s registration is active again`,
+                registration: updated,
+                changed: true,
+            });
+            return;
+        }
+
+        const now = new Date();
+        const updated = await prisma.eventRegistration.update({
+            where: { id: registrationId },
+            data: {
+                status,
+                cancelled_at: now,
+                cancel_reason: typeof reason === "string" && reason.trim() ? reason.trim() : null,
+                // The hold is moot once the booking is retired, and leaving it
+                // set would have the expiry sweep pick the row up again.
+                hold_expires_at: null,
+            },
+        });
+
+        /* A test registration is an organiser's own housekeeping — telling the
+           member their booking is now a "Test Registration" would be noise
+           about something they did not do. The other two, they should know. */
+        if (status !== "TEST") {
+            await prisma.notification.create({
+                data: {
+                    user_id: registration.user_id,
+                    message:
+                        status === "CANCELLED"
+                            ? `Your registration for "${registration.event.title}" has been cancelled${
+                                  updated.cancel_reason ? ` — ${updated.cancel_reason}` : "."
+                              }`
+                            : `Your registration for "${registration.event.title}" has been deactivated by an organiser.`,
+                    link: "/tickets",
+                },
+            });
+        }
+
+        res.json({
+            message: `${registration.user.name}'s registration is now ${statusLabel(status)}`,
+            registration: updated,
+            changed: true,
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message || "Failed to update the registration" });
+    }
+});
+
+/**
+ * 2e. Run the hold sweep by hand (Admin only).
+ *
+ * The same sweep the scheduler runs. Useful when an organiser wants the places
+ * from a batch of abandoned bookings back right now rather than within five
+ * minutes, and it is how the behaviour gets demonstrated in UAT without
+ * waiting a day.
+ */
+router.post("/holds/sweep", requireRole(["ADMIN"]), async (_req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const summary = await sweepHolds();
+        res.json({ message: "Hold sweep complete", ...summary });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message || "Hold sweep failed" });
+    }
+});
+
+/** 2f. Reminder schedule and delivery status for one event (Admin only). */
 router.get("/events/:id/reminders", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const eventId = req.params.id as string;

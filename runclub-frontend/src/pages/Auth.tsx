@@ -4,7 +4,7 @@ import { CLUB_NAME } from "../lib/brand";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Logo } from "../components/layout";
 import { PageScene } from "../components/scene3d";
-import { Button, buttonClass, Field, Input, Spinner, useToast } from "../components/ui";
+import { Button, buttonClass, Field, Input, PasswordInput, Spinner, useToast } from "../components/ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useFetch } from "../lib/useFetch";
@@ -130,9 +130,8 @@ export function Login() {
         </Field>
 
         <Field label="Password" htmlFor="password">
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             required
             autoComplete="current-password"
             value={password}
@@ -295,9 +294,8 @@ export function Signup() {
         </Field>
 
         <Field label="Password" htmlFor="password" hint="At least 8 characters.">
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             required
             autoComplete="new-password"
             value={form.password}
@@ -557,9 +555,8 @@ export function ResetPassword() {
 
           <form onSubmit={submit} className="mt-8 space-y-5">
             <Field label="New password" htmlFor="new-password" hint="At least 8 characters.">
-              <Input
+              <PasswordInput
                 id="new-password"
-                type="password"
                 required
                 autoComplete="new-password"
                 value={password}
@@ -569,9 +566,8 @@ export function ResetPassword() {
             </Field>
 
             <Field label="Confirm it" htmlFor="confirm-password">
-              <Input
+              <PasswordInput
                 id="confirm-password"
-                type="password"
                 required
                 autoComplete="new-password"
                 value={confirm}

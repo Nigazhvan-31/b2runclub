@@ -47,3 +47,57 @@ export function formatEventDate(date: Date): string {
         timeZone: CLUB_TIME_ZONE,
     }).format(date);
 }
+
+/**
+ * "20/09/2026 06:00" — a sortable stamp for a spreadsheet cell.
+ *
+ * Exports get their own format because a reader opening the file in Excel has
+ * no way to ask what zone a bare time is in. Day-first to match how the club
+ * writes dates, zero-padded so a column of them sorts as text.
+ */
+export function formatSheetDateTime(date: Date | null | undefined): string {
+    if (!date) return "";
+    const parts = new Intl.DateTimeFormat("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: CLUB_TIME_ZONE,
+    }).formatToParts(date);
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+    return `${get("day")}/${get("month")}/${get("year")} ${get("hour")}:${get("minute")}`;
+}
+
+/**
+ * How long a member has to pay before their places go back on sale.
+ *
+ * A day, as the club asked. Per-event overrides sit on `Event.hold_minutes`;
+ * this is what a session that has not set one gets.
+ */
+export const DEFAULT_HOLD_MINUTES = 24 * 60;
+
+/** The deadline a booking made now would be given, for an event's setting. */
+export function holdDeadline(
+    holdMinutes: number | null | undefined,
+    from: Date = new Date(),
+): Date {
+    const minutes = holdMinutes && holdMinutes > 0 ? holdMinutes : DEFAULT_HOLD_MINUTES;
+    return new Date(from.getTime() + minutes * 60_000);
+}
+
+/**
+ * "in 22 hours" / "in 35 minutes" — how long is left on a hold.
+ *
+ * Rounded down, because a member told "1 hour left" at 1 hour 59 minutes and
+ * locked out 59 minutes later would be right to complain.
+ */
+export function timeRemaining(deadline: Date, from: Date = new Date()): string {
+    const ms = deadline.getTime() - from.getTime();
+    if (ms <= 0) return "no time left";
+    const minutes = Math.floor(ms / 60_000);
+    if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours} hour${hours === 1 ? "" : "s"}`;
+}

@@ -29,6 +29,7 @@ import type {
   Poll,
   PollAnalytics,
   Post,
+  QuestionDraft,
   RaceDayDashboard,
   Registration,
   ReminderSchedule,
@@ -324,6 +325,12 @@ export const api = {
     cover_url?: string | null;
     /** Hours-before offsets to email registrants at. */
     reminder_offsets?: number[];
+    /** Smallest party the group discount applies to. Null for the club default. */
+    discount_min_party?: number | null;
+    /** Minutes an unpaid booking holds its place. Null for the club default. */
+    hold_minutes?: number | null;
+    /** Questions asked at registration. Empty for none. */
+    questions?: QuestionDraft[];
   }) =>
     request<{ message: string; event: ClubEvent }>("/api/events", {
       method: "POST",
@@ -332,7 +339,16 @@ export const api = {
 
   updateEvent: (
     id: string,
-    input: Partial<Omit<ClubEvent, "id" | "admin_id">> & { reminder_offsets?: number[] },
+    /*
+     * `questions` is overridden rather than inherited from ClubEvent: the
+     * event carries questions with server-assigned ids, but a save sends the
+     * organiser's drafts, which have none. Inheriting would demand ids the
+     * form cannot invent.
+     */
+    input: Partial<Omit<ClubEvent, "id" | "admin_id" | "questions">> & {
+      reminder_offsets?: number[];
+      questions?: QuestionDraft[];
+    },
   ) =>
     request<{ message: string; event: ClubEvent }>(`/api/events/${id}`, {
       method: "PUT",
@@ -424,6 +440,8 @@ export const api = {
       waiver_signed: boolean;
       emergency_contact?: string;
       guests?: GuestDraft[];
+      /** Answers to the event's questionnaire, keyed by question id. */
+      answers?: Record<string, string>;
     },
   ) =>
     request<{
@@ -431,6 +449,8 @@ export const api = {
       registration: Registration;
       razorpay_key_id: string;
       amount: number;
+      /** When an unpaid booking's places go back on sale. Null if nothing is owed. */
+      hold_expires_at: string | null;
     }>(`/api/events/${id}/register`, { method: "POST", body: input }),
 
   myRegistrations: () => request<Registration[]>("/api/events/me/registrations"),
@@ -766,16 +786,63 @@ export const api = {
   pollAnalytics: (pollId: string) =>
     request<PollAnalytics>(`/api/admin/polls/${pollId}/analytics`),
 
-  /** The backend only exposes the roster as CSV, so parse it here. */
+  /**
+   * The roster as rows, for the on-screen table.
+   *
+   * Reads the JSON endpoint. It used to fetch the CSV export and parse it back
+   * — which worked only as long as nobody's name contained a comma, and broke
+   * outright once the export became a real spreadsheet. The JSON has always
+   * been the better source: it carries the party, the phone numbers and the
+   * block state, none of which survived the round trip through CSV.
+   */
   async roster(eventId: string): Promise<RosterRow[]> {
-    const csv = await request<string>(`/api/admin/events/${eventId}/roster/export`, {
-      as: "text",
-    });
-    return parseRosterCsv(csv);
+    const rows = await request<EventRegistrationRow[]>(
+      `/api/admin/events/${eventId}/registrations`,
+    );
+    return rows.map((r) => ({
+      registration_id: r.id,
+      name: r.name,
+      email: r.email,
+      role_at_event: r.role_at_event,
+      waiver_signed: r.waiver_signed ? "Yes" : "No",
+      status: r.status,
+      payment_id: r.payment_id ?? "",
+    }));
   },
 
-  rosterCsv: (eventId: string) =>
-    request<string>(`/api/admin/events/${eventId}/roster/export`, { as: "text" }),
+  /** The server-built roster workbook: one row per participant, with numbers. */
+  rosterWorkbook: (eventId: string) =>
+    downloadFile(`/api/admin/events/${eventId}/roster/export`),
+
+  /**
+   * Retire a booking, or bring one back.
+   *
+   * Distinct from `blockRegistration`, which bars a person while leaving their
+   * booking intact. This retires the booking itself: its places go back on
+   * sale and it stops receiving mail. Pass "RESTORE" to reverse it.
+   */
+  setRegistrationStatus: (
+    registrationId: string,
+    status: "CANCELLED" | "DEACTIVATED" | "TEST" | "RESTORE",
+    reason?: string,
+  ) =>
+    request<{ message: string; registration: Registration; changed: boolean }>(
+      `/api/admin/registrations/${registrationId}/status`,
+      { method: "PUT", body: { status, reason } },
+    ),
+
+  /** Run the expiry and payment-nudge sweep now, rather than waiting for cron. */
+  sweepHolds: () =>
+    request<{
+      message: string;
+      expired: number;
+      reminded: number;
+      failed: number;
+      checked: number;
+    }>("/api/admin/holds/sweep", { method: "POST" }),
+
+  /** The whole membership as a workbook. */
+  membersWorkbook: () => downloadFile("/api/admin/members/export"),
 
   /**
    * Refund a paid entry (admin). The registration is kept with `refunded_at` set
@@ -1045,6 +1112,49 @@ export function parseRosterCsv(csv: string): RosterRow[] {
 
 export function downloadText(filename: string, text: string, mime = "text/csv") {
   const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Fetches a file the server built and saves it, filename and all.
+ *
+ * `request` cannot do this: it decodes to JSON or to text, and a .xlsx is
+ * neither — reading one as text corrupts it. This keeps the bytes as a blob,
+ * and takes the filename from Content-Disposition so the server stays the one
+ * place that decides what a download is called.
+ */
+export async function downloadFile(path: string, fallbackName = "download.xlsx") {
+  const headers: Record<string, string> = {};
+  const token = session.token();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE}${path}`, { headers });
+
+  if (res.status === 401) {
+    session.clear();
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  }
+  if (!res.ok) {
+    let message = `Download failed (${res.status})`;
+    try {
+      const data = await res.json();
+      if (data?.error) message = data.error;
+    } catch {
+      /* the error body was not JSON */
+    }
+    throw new ApiError(res.status, message);
+  }
+
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match = /filename="?([^";]+)"?/i.exec(disposition);
+  const filename = match?.[1] ?? fallbackName;
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
