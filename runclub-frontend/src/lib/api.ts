@@ -438,6 +438,13 @@ export const api = {
     id: string,
     input: {
       waiver_signed: boolean;
+      /**
+       * The booker's own WhatsApp number, for the event group.
+       *
+       * Saved back to their account, so it is prefilled next time. Distinct
+       * from `emergency_contact`, which is somebody else's.
+       */
+      phone?: string;
       emergency_contact?: string;
       guests?: GuestDraft[];
       /** Answers to the event's questionnaire, keyed by question id. */

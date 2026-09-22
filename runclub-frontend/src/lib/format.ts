@@ -215,6 +215,25 @@ export function ticketReady(status: PaymentStatus) {
 }
 
 /**
+ * The comparable tail of a phone number — its last ten digits.
+ *
+ * For telling whether two fields hold the same number. A plain string
+ * comparison fails on the case that actually arises: the WhatsApp field is
+ * prefilled from the account as "+919999988888" while the member types
+ * "99999 88888" beside it, which is the same number in two notations.
+ *
+ * Ten because that is an Indian mobile, and the club is in Madurai. An
+ * overseas number with a shorter subscriber part returns what it has, which
+ * risks a false match only between two numbers sharing every digit — and the
+ * one caller is a warning, so the cost of either kind of miss is a warning
+ * that does or does not appear.
+ */
+export function phoneTail(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  return digits.slice(-10);
+}
+
+/**
  * Whether a booking is over, whatever the reason.
  *
  * Mirrors `isClosed` on the backend. The member-facing consequence is that a

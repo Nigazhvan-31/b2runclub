@@ -12,6 +12,7 @@ import {
   inr,
   isPast,
   PAYMENT_META,
+  phoneTail,
   ticketReady,
 } from "../lib/format";
 import { DUR, EASE } from "../lib/motion";
@@ -228,6 +229,7 @@ export function RegisterDialog({
   const toast = useToast();
 
   const [contact, setContact] = useState(user?.emergency_contact ?? "");
+  const [whatsapp, setWhatsapp] = useState(user?.phone ?? "");
   const [waiver, setWaiver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -244,13 +246,14 @@ export function RegisterDialog({
   useEffect(() => {
     if (open) {
       setContact(user?.emergency_contact ?? "");
+      setWhatsapp(user?.phone ?? "");
       setGuests([]);
       setAnswers({});
       setWaiver(false);
       setError(null);
       setStage("idle");
     }
-  }, [open, user?.emergency_contact]);
+  }, [open, user?.emergency_contact, user?.phone]);
 
   // Volunteers are comped by the backend regardless of price.
   /*
@@ -314,8 +317,22 @@ export function RegisterDialog({
 
   const submit = async () => {
     setError(null);
+    if (whatsapp.trim().length < 10) {
+      setError("Your WhatsApp number is required — the club uses it for the event group.");
+      return;
+    }
     if (!contact.trim()) {
       setError("An emergency contact is required to register.");
+      return;
+    }
+    /* A member putting the same number in both has almost certainly misread
+       the second field. Refused rather than warned: an emergency contact that
+       rings the casualty's own phone is worse than useless, and this is the
+       only moment anybody will look at it. */
+    if (phoneTail(whatsapp) && phoneTail(whatsapp) === phoneTail(contact)) {
+      setError(
+        "Your emergency contact should be someone else's number — a friend or family member the organisers can ring.",
+      );
       return;
     }
     if (!waiver) {
@@ -355,6 +372,7 @@ export function RegisterDialog({
     try {
       const res = await api.registerForEvent(event.id, {
         waiver_signed: true,
+        phone: whatsapp.trim(),
         emergency_contact: contact.trim(),
         guests: guests.map((g) => ({
           name: g.name.trim(),
@@ -364,7 +382,9 @@ export function RegisterDialog({
         })),
         answers,
       });
-      patchUser({ emergency_contact: contact.trim() });
+      /* The cached account, so reopening the dialog shows what was just
+         confirmed rather than the stale value. */
+      patchUser({ emergency_contact: contact.trim(), phone: whatsapp.trim() });
       held = res.registration;
 
       // Comped and free entries are already settled server-side.
@@ -772,17 +792,47 @@ export function RegisterDialog({
           </div>
         )}
 
+        {/*
+          The member's own number, then somebody else's.
+
+          Two separate fields on purpose, and in this order. They were one
+          question for a long time, and the club ended up with emergency
+          contacts in the WhatsApp group and members' own numbers listed as who
+          to ring in an emergency. Asking for "your number" first, with the
+          reason attached, makes the second field's job obvious.
+
+          Prefilled from the account and saved back to it, so this is a
+          confirm-or-correct on every booking rather than retyping.
+        */}
+        <Field
+          label="Your WhatsApp number"
+          htmlFor="whatsapp"
+          hint="Used for the event WhatsApp group and to reach you on the day."
+        >
+          <Input
+            id="whatsapp"
+            value={whatsapp}
+            onChange={(e) => setWhatsapp(e.target.value)}
+            placeholder="+91 99999 88888"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+          />
+        </Field>
+
         <Field
           label="Emergency contact"
           htmlFor="contact"
-          hint="Saved to your profile and shared with organisers on the day."
+          hint="Someone else — who the organisers ring if something happens to you."
         >
           <Input
             id="contact"
             value={contact}
             onChange={(e) => setContact(e.target.value)}
             placeholder="+91 99999 88888"
-            autoComplete="tel"
+            type="tel"
+            inputMode="tel"
+            autoComplete="off"
           />
         </Field>
 

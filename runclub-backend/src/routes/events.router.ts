@@ -13,6 +13,7 @@ import { deleteObject } from "../utils/storage";
 import Razorpay from "razorpay";
 import { ALLOWED_OFFSETS } from "../utils/reminders";
 import { holdDeadline } from "../utils/time";
+import { normalisePhone } from "../utils/phone";
 import { SEAT_HOLDING_STATUSES } from "../utils/registrationStatus";
 import {
     parseAnswers,
@@ -867,7 +868,7 @@ router.post("/:id/register", requireRole(["MEMBER", "VOLUNTEER"]), requireVerifi
         // `req.body` is undefined when a client posts with no JSON body at all;
         // destructuring it directly turned that into a 500 instead of the 400 the
         // waiver check below is meant to give.
-        const { waiver_signed, emergency_contact } = req.body ?? {};
+        const { waiver_signed, emergency_contact, phone } = req.body ?? {};
 
         // Check emergency contact is provided (from request or check database)
         const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -948,18 +949,35 @@ router.post("/:id/register", requireRole(["MEMBER", "VOLUNTEER"]), requireVerifi
         }
 
         /*
-         * The booker's own mobile number, which every guest ticking "use my
-         * number" inherits.
+         * The booker's own WhatsApp number — the one the club adds to the
+         * event's group — and the number every guest ticking "use my number"
+         * inherits.
          *
-         * Required at signup, so an account without one predates that rule.
-         * Refusing here rather than writing a party with null numbers keeps the
-         * roster's promise that every name on it has a number beside it — and
-         * the member can add theirs on the profile page in a few seconds.
+         * Taken from the request when the form sends one, falling back to the
+         * account. The form now asks for it on every booking, prefilled from
+         * the account, for two reasons: the member gets to correct a number
+         * that has changed at the moment it matters, and an account predating
+         * the signup requirement can be completed here instead of dead-ending
+         * on "go to your profile first" halfway through a booking.
+         *
+         * Normalised through the same function as the account's own number, so
+         * the roster stays one consistent column of E.164 rather than a mix of
+         * whatever each member happened to type.
          */
-        const bookerPhone = (user as any).phone as string | null;
-        if (!bookerPhone) {
+        const suppliedPhone = typeof phone === "string" ? phone.trim() : "";
+        let bookerPhone: string;
+        if (suppliedPhone) {
+            const normalised = normalisePhone(suppliedPhone);
+            if (!normalised.ok) {
+                res.status(400).json({ error: `Your WhatsApp number: ${normalised.error}` });
+                return;
+            }
+            bookerPhone = normalised.e164!;
+        } else if ((user as any).phone) {
+            bookerPhone = (user as any).phone as string;
+        } else {
             res.status(400).json({
-                error: "Add your mobile number to your profile before booking — the club uses it for the event WhatsApp group.",
+                error: "A WhatsApp number is required — the club uses it for the event group and to reach you on the day.",
                 needs_phone: true,
             });
             return;
@@ -1023,11 +1041,25 @@ router.post("/:id/register", requireRole(["MEMBER", "VOLUNTEER"]), requireVerifi
             }
         }
 
-        // Update emergency contact on User model if provided in this request
-        if (emergency_contact && emergency_contact !== user?.emergency_contact) {
+        /*
+         * Carry both numbers back to the account, so the next booking is
+         * prefilled with what the member last confirmed rather than with
+         * whatever they first typed months ago.
+         *
+         * One update for the pair. They are compared before writing because
+         * this runs on every booking and most bookings change neither.
+         */
+        const contactChanged = Boolean(
+            emergency_contact && emergency_contact !== user?.emergency_contact,
+        );
+        const phoneChanged = bookerPhone !== (user as any).phone;
+        if (contactChanged || phoneChanged) {
             await prisma.user.update({
                 where: { id: userId },
-                data: { emergency_contact },
+                data: {
+                    ...(contactChanged ? { emergency_contact } : {}),
+                    ...(phoneChanged ? { phone: bookerPhone } : {}),
+                },
             });
         }
 
