@@ -376,6 +376,103 @@ export function Checkbox({
   );
 }
 
+/**
+ * Pick exactly one of a short list.
+ *
+ * A <select> would do the same job in less space, and that is what this
+ * replaced — but it hides every option until it is opened, so a member cannot
+ * see that "Vegetarian or Non-Vegetarian" is the whole question without
+ * interacting with it. For two or three short choices, showing them is worth
+ * the extra rows; a dropdown earns its keep somewhere past about eight.
+ *
+ * Keyboard behaviour follows the radiogroup pattern rather than being
+ * reinvented: only the selected option is tabbable, and the arrow keys move
+ * between them, which is what a screen reader announces and what anyone who
+ * navigates by keyboard will already expect.
+ */
+export function RadioGroup({
+  value,
+  onChange,
+  options,
+  label,
+  /** Renders the choices without accepting input, for a preview. */
+  readOnly = false,
+}: {
+  value: string;
+  onChange?: (v: string) => void;
+  options: string[];
+  /** Describes the group to assistive tech when there is no visible <label>. */
+  label?: string;
+  readOnly?: boolean;
+}) {
+  /* Arrow keys wrap, which is the documented behaviour for a radio group and
+     saves a member holding Down to get back to the first option. */
+  const move = (delta: number) => {
+    if (readOnly || !onChange) return;
+    const at = options.indexOf(value);
+    const next = at === -1 ? 0 : (at + delta + options.length) % options.length;
+    onChange(options[next]);
+  };
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="flex flex-wrap gap-2"
+      onKeyDown={(e) => {
+        if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+          e.preventDefault();
+          move(1);
+        } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+          e.preventDefault();
+          move(-1);
+        }
+      }}
+    >
+      {options.map((option) => {
+        const selected = option === value;
+        return (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            /* No `name`: these are buttons with ARIA roles, not native radio
+               inputs, so the group comes from the radiogroup container rather
+               than from a shared name. Setting one would imply grouping
+               semantics that are not doing any work here. */
+            aria-checked={selected}
+            disabled={readOnly}
+            /* Only the selected option takes a tab stop — the group is one
+               stop, and the arrows move within it. With nothing selected the
+               first option takes it, so the group is still reachable. */
+            tabIndex={readOnly ? -1 : selected || (!value && option === options[0]) ? 0 : -1}
+            onClick={() => onChange?.(option)}
+            className={cn(
+              "flex items-center gap-2 rounded-lg border px-3 py-2 text-[13px] transition-all duration-200",
+              selected
+                ? "border-gold/50 bg-gold/10 text-ink"
+                : "border-white/12 text-ink-2",
+              !readOnly && !selected && "hover:border-white/25 hover:text-ink",
+              readOnly && "cursor-default opacity-70",
+            )}
+          >
+            <span
+              aria-hidden
+              className={cn(
+                "grid size-4 shrink-0 place-items-center rounded-full border transition-all duration-200",
+                selected ? "border-gold" : "border-white/25",
+              )}
+            >
+              {selected && <span className="size-2 rounded-full bg-gold" />}
+            </span>
+            {option}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ── Modal ────────────────────────────────────────────────── */
 
 export function Modal({

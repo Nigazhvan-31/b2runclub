@@ -31,6 +31,7 @@ import {
   Field,
   Input,
   Modal,
+  RadioGroup,
   Select,
   Spinner,
   buttonClass,
@@ -735,26 +736,25 @@ export function RegisterDialog({
                 <Field
                   key={q.id}
                   label={q.required ? `${q.prompt} *` : q.prompt}
-                  htmlFor={`q-${q.id}`}
+                  /* Only the text branch has a single element to point at. A
+                     radio group is labelled by its own aria-label, and an
+                     htmlFor aimed at nothing is worse than none — it gives a
+                     screen reader a label that goes nowhere when clicked. */
+                  htmlFor={q.kind === "TEXT" ? `q-${q.id}` : undefined}
                 >
                   {q.kind === "CHOICE" ? (
-                    <Select
-                      id={`q-${q.id}`}
+                    /*
+                      Radios rather than a dropdown, and nothing preselected:
+                      a required question has to be answered deliberately, so
+                      it cannot be satisfied by whichever choice happened to be
+                      listed first.
+                    */
+                    <RadioGroup
+                      label={q.prompt}
                       value={answers[q.id] ?? ""}
-                      onChange={(e) =>
-                        setAnswers((a) => ({ ...a, [q.id]: e.target.value }))
-                      }
-                    >
-                      {/* An explicit empty option, so a required question
-                          cannot be satisfied by whichever choice happened to
-                          be listed first. */}
-                      <option value="">Choose one…</option>
-                      {q.options.map((o) => (
-                        <option key={o} value={o}>
-                          {o}
-                        </option>
-                      ))}
-                    </Select>
+                      onChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))}
+                      options={q.options}
+                    />
                   ) : (
                     <Input
                       id={`q-${q.id}`}

@@ -4,7 +4,7 @@ import { REMINDER_OFFSETS } from "../lib/types";
 import type { ClubEvent, EventStatus, QuestionDraft } from "../lib/types";
 import { cn, inr } from "../lib/format";
 import { SparkIcon } from "./icons";
-import { Button, Checkbox, Field, Input, Modal, Select, Textarea } from "./ui";
+import { Button, Checkbox, Field, Input, Modal, RadioGroup, Select, Textarea } from "./ui";
 
 export const EVENT_TYPES = ["Run", "Cycle", "Swim", "Race", "Training", "Social", "Party"];
 
@@ -154,12 +154,36 @@ function QuestionnaireEditor({
               </div>
 
               {q.kind === "CHOICE" && (
-                <Input
-                  value={q.options.join(", ")}
-                  onChange={(e) => update(i, { options: e.target.value.split(",") })}
-                  placeholder="Vegetarian, Non-Vegetarian"
-                  aria-label={`Question ${i + 1} options, comma separated`}
-                />
+                <>
+                  <Input
+                    value={q.options.join(", ")}
+                    onChange={(e) => update(i, { options: e.target.value.split(",") })}
+                    placeholder="Vegetarian, Non-Vegetarian"
+                    aria-label={`Question ${i + 1} options, comma separated`}
+                  />
+                  {/*
+                    What the member will actually see.
+
+                    The field above is a comma-separated list, which does not
+                    look like the thing it produces — an organiser reasonably
+                    reads it as the answer being free text. Showing the radios
+                    it becomes settles that, and doubles as a check that the
+                    commas split where they were meant to.
+                  */}
+                  {q.options.some((o) => o.trim()) && (
+                    <div className="rounded-lg border border-white/8 bg-white/[0.02] p-2.5">
+                      <p className="mb-2 text-[11px] uppercase tracking-wider text-ink-3">
+                        Members will see
+                      </p>
+                      <RadioGroup
+                        readOnly
+                        label="Preview of the answer options"
+                        value=""
+                        options={q.options.map((o) => o.trim()).filter(Boolean)}
+                      />
+                    </div>
+                  )}
+                </>
               )}
 
               <label className="flex cursor-pointer items-center gap-2 text-[12px] text-ink-3">
