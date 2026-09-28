@@ -848,6 +848,9 @@ export const api = {
       checked: number;
     }>("/api/admin/holds/sweep", { method: "POST" }),
 
+  /** Every event's roster in one workbook. */
+  allRostersWorkbook: () => downloadFile("/api/admin/rosters/export"),
+
   /** The whole membership as a workbook. */
   membersWorkbook: () => downloadFile("/api/admin/members/export"),
 
@@ -1068,63 +1071,6 @@ export const api = {
   clearHealth: () =>
     request<{ message: string; count: number }>("/api/health", { method: "DELETE" }),
 };
-
-/** Minimal RFC-4180 field splitter — the roster export quotes name/email. */
-function splitCsvLine(line: string): string[] {
-  const out: string[] = [];
-  let field = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        if (line[i + 1] === '"') {
-          field += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        field += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ",") {
-      out.push(field);
-      field = "";
-    } else {
-      field += ch;
-    }
-  }
-  out.push(field);
-  return out;
-}
-
-export function parseRosterCsv(csv: string): RosterRow[] {
-  const lines = csv.split("\n").filter((l) => l.trim().length > 0);
-  return lines.slice(1).map((line) => {
-    const c = splitCsvLine(line);
-    return {
-      registration_id: c[0] ?? "",
-      name: c[1] ?? "",
-      email: c[2] ?? "",
-      role_at_event: c[3] ?? "",
-      waiver_signed: c[4] ?? "",
-      status: (c[5] ?? "PENDING") as RosterRow["status"],
-      payment_id: c[6] ?? "N/A",
-    };
-  });
-}
-
-export function downloadText(filename: string, text: string, mime = "text/csv") {
-  const url = URL.createObjectURL(new Blob([text], { type: mime }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 /**
  * Fetches a file the server built and saves it, filename and all.

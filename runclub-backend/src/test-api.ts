@@ -1,4 +1,5 @@
 import app from "./server";
+import ExcelJS from "exceljs";
 import prisma from "./utils/prisma";
 import crypto from "crypto";
 import { Server } from "http";
@@ -349,7 +350,7 @@ async function runTests() {
         if (vote2.status !== 400) throw new Error("Unique composite constraint bypassed: voted twice");
 
         // 10. Admin Dashboard
-        console.log("\n[10/10] Fetching Admin Dashboard metrics & CSV Roster Export...");
+        console.log("\n[10/10] Fetching Admin Dashboard metrics & roster workbook...");
         const overviewRes = await fetch(`${BASE_URL}/api/admin/financial-overview`, {
             headers: { Authorization: `Bearer ${adminToken}` },
         });
@@ -360,11 +361,35 @@ async function runTests() {
         const rosterRes = await fetch(`${BASE_URL}/api/admin/events/${pubEvent.id}/roster/export`, {
             headers: { Authorization: `Bearer ${adminToken}` },
         });
-        console.log("Roster CSV export response headers Content-Type:", rosterRes.headers.get("content-type"));
-        const csvContent = await rosterRes.text();
-        console.log("Roster Export Content preview:\n", csvContent.trim());
-        if (!csvContent.includes("Registration ID") || !csvContent.includes("member@runclub.com") || !csvContent.includes("volunteer@runclub.com")) {
-            throw new Error("Roster CSV generation was invalid");
+        /*
+         * The export is a workbook, not CSV, so it is read as bytes and opened
+         * with ExcelJS. Reading it as text used to be enough when the endpoint
+         * emitted CSV; doing that to a .xlsx yields mangled zip bytes in which
+         * `includes("member@runclub.com")` happens to be false — a passing
+         * assertion turned into a confusing failure rather than a clear one.
+         */
+        const contentType = rosterRes.headers.get("content-type") ?? "";
+        console.log("Roster export Content-Type:", contentType);
+        if (!contentType.includes("spreadsheetml")) {
+            throw new Error(`Roster export should be a .xlsx, got "${contentType}"`);
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        /* Cast because ExcelJS's bundled types name an older `Buffer` than this
+           Node's; the value is a Buffer either way. */
+        await workbook.xlsx.load(Buffer.from(await rosterRes.arrayBuffer()) as never);
+        const sheet = workbook.worksheets[0];
+        const cells: string[] = [];
+        sheet.eachRow((row) => {
+            for (const value of (row.values as unknown[]).slice(1)) {
+                cells.push(String(value ?? ""));
+            }
+        });
+        console.log(`Roster workbook: ${sheet.rowCount - 1} participant rows`);
+        for (const expected of ["Participant", "Mobile", "member@runclub.com", "volunteer@runclub.com"]) {
+            if (!cells.includes(expected)) {
+                throw new Error(`Roster workbook is missing "${expected}"`);
+            }
         }
 
         console.log("\n>>> ALL TEST CASES PASSED SUCCESSFULLY CLIENT-SIDE! <<<");

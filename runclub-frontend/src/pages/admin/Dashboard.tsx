@@ -26,8 +26,6 @@ import {
 import { HeroVideoPanel } from "../../components/heroVideoPanel";
 import { MailerPanel } from "../../components/mailerPanel";
 import { api } from "../../lib/api";
-import { CLUB_SLUG } from "../../lib/brand";
-import { buildXlsx, downloadXlsx } from "../../lib/xlsx";
 import { compact, eventDate, inr, isPast } from "../../lib/format";
 import { useFetch } from "../../lib/useFetch";
 
@@ -127,53 +125,16 @@ export function AdminDashboard() {
   /**
    * One workbook covering every event, for accounting.
    *
-   * Real .xlsx rather than the CSV this used to emit: the dates now arrive as
-   * dates instead of text Excel re-guesses per locale, and the header is bold
-   * and frozen.
+   * Built by the server, like every other export. It used to be assembled here
+   * from one request per event, with its columns written out by hand — which
+   * meant thirty requests for one download, and a file whose shape drifted
+   * from the single-event roster it sat beside.
    */
   const exportAll = async () => {
     setExporting(true);
     try {
-      const parts = await Promise.all(
-        (events.data ?? []).map(async (e) => {
-          const rows = await api.roster(e.id);
-          return rows.map((r) => [
-            e.title,
-            // A real Date, so Excel sorts and filters it as one.
-            new Date(e.date_time),
-            r.name,
-            r.email,
-            r.role_at_event,
-            r.waiver_signed ? "Yes" : "No",
-            r.status,
-            r.payment_id,
-          ]);
-        }),
-      );
-      const rows = parts.flat();
-      if (rows.length === 0) {
-        toast("No registrations to export yet.", "info");
-        return;
-      }
-      const blob = buildXlsx({
-        header: [
-          "Event",
-          "Event Date",
-          "Name",
-          "Email",
-          "Role",
-          "Waiver Signed",
-          "Payment Status",
-          "Payment ID",
-        ],
-        rows,
-        sheetName: "All rosters",
-      });
-      downloadXlsx(
-        `${CLUB_SLUG}-all-rosters-${new Date().toISOString().slice(0, 10)}.xlsx`,
-        blob,
-      );
-      toast(`Exported ${rows.length} registrations.`, "ok");
+      await api.allRostersWorkbook();
+      toast("All rosters exported.", "ok");
     } catch (err) {
       toast(err instanceof Error ? err.message : "Export failed", "err");
     } finally {

@@ -212,6 +212,8 @@ export interface EventRegistrationRow {
   name: string;
   email: string;
   club_role: Role;
+  /** The member's account number, used when the booking carries none. */
+  member_phone?: string | null;
   role_at_event: string;
   status: PaymentStatus;
   waiver_signed: boolean;

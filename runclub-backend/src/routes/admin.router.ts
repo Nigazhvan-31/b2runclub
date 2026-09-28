@@ -75,103 +75,140 @@ router.get("/financial-overview", requireRole(["ADMIN"]), async (req: AuthReques
     }
 });
 
-// 2. Export Roster for an Event as CSV (Admin only)
+/**
+ * The roster of one or more events, as spreadsheet columns and rows.
+ *
+ * Shared by the single-event export and the all-events one so the two cannot
+ * drift. They did drift once: the all-events file was built in the browser from
+ * a different query and listed bookings rather than participants, so the same
+ * party of four was four rows in one download and one row in the other.
+ *
+ * One row per *participant*, not per booking. The old single-event export
+ * listed only the person who paid, so the rest of a party were invisible —
+ * no good in a file whose job is building the event's WhatsApp group and
+ * knowing who is turning up.
+ *
+ * Booking-level detail (payment, amount, status) repeats down a party's rows.
+ * Duplicated on purpose: this is a sheet to be sorted and filtered, and a
+ * blank cell meaning "see the row above" stops meaning anything the moment
+ * somebody sorts by name.
+ *
+ * `includeEventColumns` prefixes the event's name and date, which only earns
+ * its width when more than one event is in the file.
+ */
+async function buildRosterSheet(
+    eventIds: string[],
+    { includeEventColumns }: { includeEventColumns: boolean },
+) {
+    const registrations = (await prisma.eventRegistration.findMany({
+        where: { event_id: { in: eventIds } },
+        include: {
+            event: { select: { id: true, title: true, date_time: true } },
+            user: true,
+            guests: { orderBy: [{ is_booker: "desc" }, { created_at: "asc" }] },
+            answers: true,
+        },
+        orderBy: [{ event: { date_time: "desc" } }, { user: { name: "asc" } }],
+    })) as any[];
+
+    const questions = (
+        await prisma.eventQuestion.findMany({
+            where: { event_id: { in: eventIds } },
+            orderBy: { position: "asc" },
+        })
+    ).map(toPublicQuestion);
+
+    /* Across several events the same prompt can appear more than once, so
+       questions are grouped by wording into a single column — an organiser
+       filtering "Vegetarian" wants every event's answers, not one event's. */
+    const promptColumns = [...new Set(questions.map((q) => q.prompt))];
+    const promptForId = new Map(questions.map((q) => [q.id, q.prompt]));
+
+    const columns = [
+        ...(includeEventColumns
+            ? [
+                  { header: "Event", width: 30 },
+                  { header: "Event date", width: 18 },
+              ]
+            : []),
+        { header: "Participant", width: 26 },
+        { header: "Mobile", width: 18 },
+        { header: "Type", width: 10 },
+        { header: "Booked by", width: 26 },
+        { header: "Booker email", width: 30 },
+        { header: "Status", width: 26 },
+        { header: "Event role", width: 12 },
+        { header: "Amount (₹)", width: 12 },
+        { header: "Payment ID", width: 22 },
+        { header: "Registered", width: 18 },
+        { header: "Blocked", width: 9 },
+        { header: "Checked in", width: 18 },
+        ...promptColumns.map((p) => ({ header: p, width: 22 })),
+        { header: "Registration ID", width: 38 },
+    ];
+
+    const rows: unknown[][] = [];
+
+    for (const reg of registrations) {
+        const answerFor = new Map<string, string>();
+        for (const a of reg.answers ?? []) {
+            const prompt = promptForId.get(a.question_id);
+            if (prompt) answerFor.set(prompt, a.answer);
+        }
+
+        /* A booking taken before guests existed has no guest rows at all;
+           fall back to the booker so the roster never silently omits somebody
+           who is on the start line. */
+        const party =
+            reg.guests?.length > 0
+                ? reg.guests
+                : [{ name: reg.user.name, kind: "ADULT", is_booker: true, phone: reg.user.phone }];
+
+        for (const person of party) {
+            rows.push([
+                ...(includeEventColumns
+                    ? [reg.event.title, formatSheetDateTime(reg.event.date_time)]
+                    : []),
+                person.name,
+                /* The account's number stands in for a booker whose guest row
+                   predates the column, which is the same fallback the on-screen
+                   roster applies — the two must not disagree about whether a
+                   member has a number. A guest gets no such fallback: theirs
+                   was simply never collected. */
+                person.phone ?? (person.is_booker ? reg.user.phone ?? "" : ""),
+                person.is_booker ? "Booker" : person.kind === "KID" ? "Child" : "Guest",
+                reg.user.name,
+                reg.user.email,
+                statusLabel(reg.status),
+                reg.role_at_event,
+                (reg.amount_due_paise / 100).toFixed(2),
+                reg.razorpay_payment_id || "",
+                formatSheetDateTime(reg.created_at),
+                reg.blocked_at ? "YES" : "NO",
+                formatSheetDateTime(person.admitted_at ?? null),
+                ...promptColumns.map((p) => answerFor.get(p) ?? ""),
+                reg.id,
+            ]);
+        }
+    }
+
+    return { columns, rows };
+}
+
+// 2. One event's roster as a spreadsheet (Admin only)
 router.get("/events/:id/roster/export", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const eventId = req.params.id as string;
 
-        // Check event exists
         const event = await prisma.event.findUnique({ where: { id: eventId } });
         if (!event) {
             res.status(404).json({ error: "Event not found" });
             return;
         }
 
-        const registrations = (await prisma.eventRegistration.findMany({
-            where: { event_id: eventId },
-            include: {
-                user: true,
-                guests: { orderBy: [{ is_booker: "desc" }, { created_at: "asc" }] },
-                answers: true,
-            },
-            orderBy: { user: { name: "asc" } },
-        })) as any[];
-
-        const questions = (
-            await prisma.eventQuestion.findMany({
-                where: { event_id: eventId },
-                orderBy: { position: "asc" },
-            })
-        ).map(toPublicQuestion);
-
-        /*
-         * One row per *participant*, not per booking.
-         *
-         * This is the change that makes the file usable. The old export listed
-         * the person who paid and nobody else, so a party of four appeared as
-         * one line and the other three were invisible — which is no good when
-         * the file exists to build the event's WhatsApp group and to know who
-         * is actually turning up.
-         *
-         * Booking-level detail (payment, amount, status) repeats down the
-         * party's rows. Duplicated, but this is a spreadsheet to be filtered
-         * and sorted, and a blank cell that means "see the row above" stops
-         * meaning anything the moment somebody sorts by name.
-         */
-        const columns = [
-            { header: "Participant", width: 26 },
-            { header: "Mobile", width: 18 },
-            { header: "Type", width: 10 },
-            { header: "Booked by", width: 26 },
-            { header: "Booker email", width: 30 },
-            { header: "Status", width: 26 },
-            { header: "Event role", width: 12 },
-            { header: "Amount (₹)", width: 12 },
-            { header: "Payment ID", width: 22 },
-            { header: "Registered", width: 18 },
-            { header: "Blocked", width: 9 },
-            { header: "Checked in", width: 18 },
-            ...questions.map((q) => ({ header: q.prompt, width: 22 })),
-            { header: "Registration ID", width: 38 },
-        ];
-
-        const rows: unknown[][] = [];
-
-        for (const reg of registrations) {
-            const answerFor = new Map<string, string>(
-                (reg.answers ?? []).map((a: any) => [a.question_id, a.answer]),
-            );
-
-            /* A booking taken before guests existed has no guest rows at all;
-               fall back to the booker so the roster never silently omits
-               somebody who is on the start line. */
-            const party =
-                reg.guests?.length > 0
-                    ? reg.guests
-                    : [{ name: reg.user.name, kind: "ADULT", is_booker: true, phone: reg.user.phone }];
-
-            for (const person of party) {
-                rows.push([
-                    person.name,
-                    /* Blank rather than the booker's number when it was never
-                       collected: a number that is a guess is worse than an
-                       obvious gap, because only one of the two gets chased. */
-                    person.phone ?? (person.is_booker ? reg.user.phone ?? "" : ""),
-                    person.is_booker ? "Booker" : person.kind === "KID" ? "Child" : "Guest",
-                    reg.user.name,
-                    reg.user.email,
-                    statusLabel(reg.status),
-                    reg.role_at_event,
-                    (reg.amount_due_paise / 100).toFixed(2),
-                    reg.razorpay_payment_id || "",
-                    formatSheetDateTime(reg.created_at),
-                    reg.blocked_at ? "YES" : "NO",
-                    formatSheetDateTime(person.admitted_at ?? null),
-                    ...questions.map((q) => answerFor.get(q.id) ?? ""),
-                    reg.id,
-                ]);
-            }
-        }
+        const { columns, rows } = await buildRosterSheet([eventId], {
+            includeEventColumns: false,
+        });
 
         await sendWorkbook(res, {
             filename: `roster-${slugForFilename(event.title)}.xlsx`,
@@ -181,6 +218,33 @@ router.get("/events/:id/roster/export", requireRole(["ADMIN"]), async (req: Auth
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message || "Failed to export roster" });
+    }
+});
+
+/**
+ * 2b. Every event's roster in one spreadsheet (Admin only).
+ *
+ * Replaces a version assembled in the browser, which fetched each event's
+ * roster separately and rebuilt the columns by hand — so it drifted from the
+ * single-event file, and a club with thirty events made thirty requests to
+ * produce one download.
+ */
+router.get("/rosters/export", requireRole(["ADMIN"]), async (_req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const events = await prisma.event.findMany({ select: { id: true } });
+        const { columns, rows } = await buildRosterSheet(
+            events.map((e) => e.id),
+            { includeEventColumns: true },
+        );
+
+        await sendWorkbook(res, {
+            filename: `b2-club-all-rosters-${new Date().toISOString().slice(0, 10)}.xlsx`,
+            sheetName: "All rosters",
+            columns,
+            rows,
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message || "Failed to export rosters" });
     }
 });
 
@@ -268,7 +332,11 @@ router.get("/events/:id/registrations", requireRole(["ADMIN"]), async (req: Auth
         const registrations = await prisma.eventRegistration.findMany({
             where: { event_id: eventId },
             include: {
-                user: { select: { id: true, name: true, email: true, role: true } },
+                /* `phone` is here as a fallback for a booking made before
+                   guest rows carried one. The Excel export already falls back
+                   this way, and without it the screen would read "no number"
+                   for a booking whose exported row shows one. */
+                user: { select: { id: true, name: true, email: true, role: true, phone: true } },
                 // One booking can be several people, so the roster has to be
                 // able to show who a row actually covers and which of them
                 // have arrived.
@@ -284,6 +352,8 @@ router.get("/events/:id/registrations", requireRole(["ADMIN"]), async (req: Auth
                 name: r.user.name,
                 email: r.user.email,
                 club_role: r.user.role,
+                /** The member's account number, for the fallback described above. */
+                member_phone: r.user.phone,
                 role_at_event: r.role_at_event,
                 status: r.status,
                 waiver_signed: r.waiver_signed,

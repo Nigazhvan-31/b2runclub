@@ -228,6 +228,12 @@ export function EventRoster({ event }: { event: ClubEvent }) {
             const closed = bookingClosed(r.status);
             const party = r.guests ?? [];
             const isParty = party.length > 1;
+            /* A booking taken before numbers were collected has none, and so
+               does one whose guest rows predate the column. Shown as "no
+               number" rather than blank — a gap reads as a rendering fault,
+               and this is a thing an organiser may need to chase. */
+            const bookerPhone =
+              party.find((g) => g.is_booker)?.phone ?? r.member_phone ?? null;
             const inside = party.filter((g) => g.admitted_at).length;
             const open = Boolean(expanded[r.id]);
 
@@ -316,12 +322,54 @@ export function EventRoster({ event }: { event: ClubEvent }) {
                       role was the half that got cut ("…@gmail.com · Me…"),
                       which is the half an organiser is reading for. */}
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[12px] text-ink-3">
+                    {/*
+                      The booker's number, on the row itself.
+
+                      It used to live only inside the expanded party list,
+                      which meant it was invisible for a booking of one —
+                      `isParty` is false there, so no expand control is drawn
+                      and there was nothing to open. Numbers are the reason
+                      this screen gets opened, so they belong where the eye
+                      already is rather than behind a click.
+
+                      Selectable and monospaced, because the usual next action
+                      is to copy it into WhatsApp.
+                    */}
+                    <span className="tnum select-all text-ink-2">
+                      {bookerPhone ?? "no number"}
+                    </span>
+                    <span aria-hidden>·</span>
                     <span className="max-w-full truncate">{r.email}</span>
                     <span aria-hidden className="hidden sm:inline">
                       ·
                     </span>
                     <span>{(ROLE_META[r.club_role] ?? ROLE_META.MEMBER).label}</span>
                   </div>
+
+                  {/*
+                    A party's other numbers, without needing the panel opened.
+
+                    The expandable list below carries per-person check-in, so
+                    it stays — but an organiser building a WhatsApp group wants
+                    every number at once, and clicking through each booking to
+                    collect them is the job the export exists to avoid. This is
+                    the middle ground: all of them visible, none of them
+                    requiring a click.
+                  */}
+                  {isParty && (
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-ink-3">
+                      {party
+                        .filter((g) => !g.is_booker)
+                        .map((g) => (
+                          <span key={g.id} className="whitespace-nowrap">
+                            {g.name}{" "}
+                            <span className="tnum select-all text-ink-2">
+                              {g.phone ?? "no number"}
+                            </span>
+                          </span>
+                        ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Full width on its own line below the name, then back
@@ -435,15 +483,10 @@ export function EventRoster({ event }: { event: ClubEvent }) {
                                     ? "child"
                                     : "guest"}
                               </span>
-                              {/* The number, so an organiser building the
-                                  WhatsApp group can work from this list
-                                  rather than downloading the sheet for two
-                                  people. Bookings taken before numbers were
-                                  collected have none — shown as such, since
-                                  an empty gap reads as a rendering fault. */}
-                              <span className="ml-1.5 tnum text-[11.5px] text-ink-3">
-                                {g.phone ?? "no number"}
-                              </span>
+                              {/* No number here: the row above lists every
+                                  one of them already, and printing each twice
+                                  in the same block is noise. This panel is for
+                                  admitting people one at a time. */}
                             </span>
                             {isBlocked ? (
                               <span className="text-[11.5px] text-ink-3">—</span>
