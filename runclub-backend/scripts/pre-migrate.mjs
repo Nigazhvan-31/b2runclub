@@ -41,16 +41,6 @@ async function main() {
       console.log(`[pre-migrate] Cleaned up ${failedRes.rowCount} failed migration record(s):`, failedRes.rows.map((r) => r.migration_name));
     }
 
-    // 2. Also delete any recorded attempt of 10_participant_details_and_holds if it exists,
-    // to ensure it runs in its correct order after 08_party_booking and 09_party_discount
-    const tenRes = await client.query(`
-      DELETE FROM _prisma_migrations 
-      WHERE migration_name = '10_participant_details_and_holds'
-      RETURNING migration_name;
-    `);
-    if (tenRes.rowCount > 0) {
-      console.log("[pre-migrate] Reset 10_participant_details_and_holds record to allow re-running in correct order.");
-    }
 
     // 3. Update single-digit migration names (0_init -> 00_init, 1_... -> 01_...) to match the zero-padded folder names
     const renameRes = await client.query(`
