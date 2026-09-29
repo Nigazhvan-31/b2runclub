@@ -5,12 +5,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.mailerConfigured = void 0;
 exports.sendMail = sendMail;
+exports.lastMailError = lastMailError;
 exports.mailerConfig = mailerConfig;
 exports.testEmail = testEmail;
 exports.verifyMailer = verifyMailer;
 exports.passwordResetEmail = passwordResetEmail;
 exports.verificationCodeEmail = verificationCodeEmail;
 exports.reminderEmail = reminderEmail;
+exports.paymentReminderEmail = paymentReminderEmail;
 const nodemailer_1 = __importDefault(require("nodemailer"));
 const brand_1 = require("./brand");
 const SMTP_HOST = process.env.SMTP_HOST;
@@ -53,14 +55,63 @@ async function sendMail(mail) {
     }
     try {
         await t.sendMail({ from: MAIL_FROM, ...mail });
+        lastSendError = null;
         return { ok: true, simulated: false };
     }
     catch (error) {
         // Never throw at the caller: a failed send must not abort a sweep that
         // still has other recipients to get through.
-        console.error(`[mailer] send to ${mail.to} failed:`, error?.message || error);
-        return { ok: false, simulated: false, error: error?.message || "send failed" };
+        const message = error?.message || "send failed";
+        console.error(`[mailer] send to ${mail.to} failed:`, message);
+        /*
+         * An authentication failure is called out by name, because it has one
+         * cause here and it has already bitten the club once.
+         *
+         * Gmail invalidates every App Password when the account password is
+         * changed. SMTP_PASS then silently stops working and every verification
+         * email fails — so new members cannot confirm their address and cannot
+         * register, while the app looks perfectly healthy. Nothing in the logs
+         * said "your credential died"; it just said a send failed, which reads
+         * like a transient network problem.
+         *
+         * Recorded as well as logged, so /api/admin/mailer can show it rather
+         * than an organiser needing server logs to find out.
+         */
+        if (isAuthFailure(error)) {
+            lastSendError = {
+                at: new Date(),
+                message,
+                hint: "SMTP authentication was rejected. If the club's Gmail password was changed, " +
+                    "the App Password in SMTP_PASS is now void — generate a new one at " +
+                    "myaccount.google.com/apppasswords and update it in the deployment's environment.",
+            };
+            console.error(`[mailer] ${lastSendError.hint}`);
+        }
+        else {
+            lastSendError = { at: new Date(), message };
+        }
+        return { ok: false, simulated: false, error: message };
     }
+}
+/** Nodemailer's shape for "the server refused these credentials". */
+function isAuthFailure(error) {
+    if (error?.code === "EAUTH")
+        return true;
+    // 535 is SMTP's "authentication credentials invalid".
+    if (error?.responseCode === 535)
+        return true;
+    return /invalid login|username and password not accepted|authentication failed/i.test(String(error?.message ?? ""));
+}
+/**
+ * The most recent send failure, for the admin diagnostics panel.
+ *
+ * In memory only, and lost on restart — which is the right weight for
+ * something whose job is to answer "is mail working right now". A durable log
+ * of every failure is a different feature and would need a table.
+ */
+let lastSendError = null;
+function lastMailError() {
+    return lastSendError;
 }
 /**
  * Which mail settings are present, for the admin diagnostics panel.
@@ -86,6 +137,19 @@ function mailerConfig() {
         ]
             .filter(([, v]) => !v)
             .map(([k]) => k),
+        /*
+         * The last failure, so "members aren't getting verification emails" can
+         * be diagnosed from the admin panel. Credentials present but rejected
+         * looks identical to credentials working, until something tries to
+         * send — which is exactly how a dead Gmail App Password went unnoticed.
+         */
+        last_error: lastSendError
+            ? {
+                at: lastSendError.at.toISOString(),
+                message: lastSendError.message,
+                hint: lastSendError.hint ?? null,
+            }
+            : null,
     };
 }
 /** A deliberately plain message for confirming delivery actually works. */
@@ -268,6 +332,60 @@ function reminderEmail(input) {
     return {
         to: "",
         subject: `${input.eventTitle} — starts ${lead}`,
+        html,
+        text,
+    };
+}
+/**
+ * The awaiting-payment nudge, sent partway through a booking's 24-hour hold.
+ *
+ * Distinct from the event reminder above, which is timed from the event and
+ * mentions payment in passing. This one is about the deadline and says the two
+ * things a member needs in order to act: what is owed, and how long is left.
+ *
+ * The time left is stated rather than the deadline timestamp. "16 hours left"
+ * needs no timezone and cannot be misread; "expires at 06:00" was the shape of
+ * bug that started this whole piece of work.
+ */
+function paymentReminderEmail(input) {
+    const html = shell(`
+      <p style="margin:0 0 6px;color:${GOLD};font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;">Payment pending</p>
+      <h1 style="margin:0 0 14px;color:${INK};font-size:26px;line-height:1.15;font-weight:800;letter-spacing:-0.03em;">${input.eventTitle}</h1>
+      <p style="margin:0 0 18px;color:#a5aab5;font-size:14px;line-height:1.6;">
+        Hi ${input.name}, your spot is held but not yet paid for.<br>
+        <strong style="color:${INK};">${input.when}</strong><br>${input.location}
+      </p>
+      <p style="margin:0 0 6px;color:#fab219;font-size:14px;line-height:1.6;">
+        <strong>${input.amountDue}</strong> outstanding — about <strong>${input.timeLeft}</strong> left
+        before the spot goes back to other members.
+      </p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 6px;">
+        <tr><td style="background:${GOLD};border-radius:10px;">
+          <a href="${input.payUrl}" style="display:inline-block;padding:12px 22px;color:#161000;font-size:14px;font-weight:700;text-decoration:none;">
+            Complete payment
+          </a>
+        </td></tr>
+      </table>
+      <p style="margin:18px 0 0;color:#6d737f;font-size:12px;line-height:1.6;">
+        Already paid? Open the link above and your ticket will appear — no need to pay twice.
+        If the spot does expire you can register again while places remain.
+      </p>`, `${input.amountDue} outstanding for ${input.eventTitle} — about ${input.timeLeft} left`);
+    const text = [
+        `Your spot for ${input.eventTitle} is held but not yet paid for.`,
+        "",
+        `Hi ${input.name},`,
+        `${input.when}`,
+        `${input.location}`,
+        "",
+        `${input.amountDue} outstanding — about ${input.timeLeft} left before the spot is released.`,
+        "",
+        input.payUrl,
+        "",
+        "Already paid? Open the link and your ticket will appear — no need to pay twice.",
+    ].join("\n");
+    return {
+        to: "",
+        subject: `${input.eventTitle} — ${input.amountDue} outstanding, ${input.timeLeft} left`,
         html,
         text,
     };

@@ -10,12 +10,46 @@ const auth_1 = require("../middleware/auth");
 const razorpay_1 = __importDefault(require("razorpay"));
 const secrets_1 = require("../utils/secrets");
 const time_1 = require("../utils/time");
+const registrationStatus_1 = require("../utils/registrationStatus");
 const razorpay = new razorpay_1.default({
     // Placeholder strings only; every call is gated behind RAZORPAY_MOCK_MODE.
     key_id: secrets_1.RAZORPAY_KEY_ID ?? "unconfigured",
     key_secret: secrets_1.RAZORPAY_KEY_SECRET ?? "unconfigured",
 });
 const router = (0, express_1.Router)();
+/**
+ * The fields that stop applying the moment a booking is paid.
+ *
+ * Written alongside every transition to PAID. The hold is over, so its deadline
+ * and its expiry stamp are meaningless — and leaving `expired_at` set on a paid
+ * booking would have the roster show a settled member as having lost their
+ * place.
+ *
+ * `payment_reminder_sent_at` is cleared rather than left, so that if an
+ * organiser ever reinstates the booking to PENDING the nudge can be sent
+ * again. A stale stamp would silently suppress it.
+ */
+const SETTLED_FIELDS = {
+    hold_expires_at: null,
+    expired_at: null,
+    payment_reminder_sent_at: null,
+};
+/**
+ * Whether a payment may still be applied to this booking.
+ *
+ * EXPIRED is accepted deliberately. The hold running out releases the *place*,
+ * but it does not cancel the Razorpay order, so a member who comes back later
+ * can still pay it — and once their money has been taken, refusing to issue a
+ * ticket is the one outcome that cannot be defended. The place is honoured and
+ * the event may go one over; an organiser can see that on the roster and deal
+ * with it, which is a better problem than a charged member with nothing.
+ *
+ * CANCELLED, DEACTIVATED and TEST are not accepted: those are decisions
+ * somebody made on purpose, and a late payment should not quietly undo them.
+ */
+function acceptsPayment(status) {
+    return status === "PENDING" || status === "EXPIRED";
+}
 // Razorpay Webhook Endpoint
 router.post("/webhook", async (req, res) => {
     try {
@@ -73,13 +107,15 @@ router.post("/webhook", async (req, res) => {
                 res.status(404).json({ error: `Registration not found for order ${razorpayOrderId}` });
                 return;
             }
-            // Only update if not already processed
-            if (registration.status !== "PAID") {
+            // Only update if not already processed, and only onto a booking
+            // that is still open to payment — a cancelled one is not.
+            if (acceptsPayment(registration.status)) {
                 await prisma_1.default.eventRegistration.update({
                     where: { id: registration.id },
                     data: {
                         status: "PAID",
                         razorpay_payment_id: razorpayPaymentId,
+                        ...SETTLED_FIELDS,
                     },
                 });
                 // Trigger Notification to member for successful signup
@@ -149,7 +185,7 @@ router.post("/verify", (0, auth_1.requireRole)(["MEMBER", "VOLUNTEER", "ADMIN"])
         }
         const updated = await prisma_1.default.eventRegistration.update({
             where: { id: registration.id },
-            data: { status: "PAID", razorpay_payment_id },
+            data: { status: "PAID", razorpay_payment_id, ...SETTLED_FIELDS },
         });
         await prisma_1.default.notification.create({
             data: {
@@ -213,7 +249,7 @@ async function settleFromGateway(registration) {
 async function markPaidFromGateway(registration, paymentId) {
     const updated = await prisma_1.default.eventRegistration.update({
         where: { id: registration.id },
-        data: { status: "PAID", razorpay_payment_id: paymentId },
+        data: { status: "PAID", razorpay_payment_id: paymentId, ...SETTLED_FIELDS },
     });
     await prisma_1.default.notification.create({
         data: {
@@ -255,6 +291,18 @@ router.post("/reconcile/:registrationId", (0, auth_1.requireRole)(["MEMBER", "VO
             res.json({
                 message: "This booking is already settled — your ticket is live.",
                 registration,
+                changed: false,
+            });
+            return;
+        }
+        /* An expired booking is still worth checking — that is the whole
+           point of this route for somebody who paid and never got a
+           ticket. Cancelled and deactivated ones are not, and saying so is
+           better than reporting "no payment found" for a booking that was
+           deliberately retired. */
+        if (!acceptsPayment(registration.status)) {
+            res.status(400).json({
+                error: `This booking is ${(0, registrationStatus_1.statusLabel)(registration.status)}, so no payment can be applied to it. Contact an organiser.`,
                 changed: false,
             });
             return;
@@ -322,9 +370,13 @@ router.post("/reconcile", (0, auth_1.requireRole)(["ADMIN"]), async (req, res) =
             return;
         }
         const eventId = typeof req.body?.event_id === "string" ? req.body.event_id : undefined;
+        /* Expired bookings are swept as well as pending ones. A member who
+           paid and never got the callback is exactly the person whose hold
+           then ran out, so restricting this to PENDING would miss the
+           cases it exists to find. */
         const pending = (await prisma_1.default.eventRegistration.findMany({
             where: {
-                status: "PENDING",
+                status: { in: ["PENDING", "EXPIRED"] },
                 ...(eventId ? { event_id: eventId } : {}),
             },
             include: { event: true, user: { select: { name: true, email: true } } },
@@ -442,7 +494,11 @@ router.post("/simulate", (0, auth_1.requireRole)(["MEMBER", "VOLUNTEER", "ADMIN"
         }
         const updated = await prisma_1.default.eventRegistration.update({
             where: { id: registration.id },
-            data: { status: "PAID", razorpay_payment_id: `pay_simulated_${Date.now()}` },
+            data: {
+                status: "PAID",
+                razorpay_payment_id: `pay_simulated_${Date.now()}`,
+                ...SETTLED_FIELDS,
+            },
         });
         await prisma_1.default.notification.create({
             data: {

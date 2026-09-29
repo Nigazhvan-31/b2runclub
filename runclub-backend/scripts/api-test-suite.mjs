@@ -25,11 +25,20 @@ async function call(path, { method = "GET", body, token, raw = false } = {}) {
   return { status: res.status, json };
 }
 
-const env = Object.fromEntries(
-  fs.readFileSync("/Users/mfaarsi/Desktop/B2 Run/runclub-backend/env file", "utf8")
-    .split("\n").filter((l) => /^[A-Z_]+=/.test(l))
-    .map((l) => { const i = l.indexOf("="); return [l.slice(0, i), l.slice(i + 1).trim().replace(/^["']|["']$/g, "")]; })
-);
+const envFile = [
+  new URL("../.env", import.meta.url),
+  "/Users/mfaarsi/Desktop/B2 Run/runclub-backend/env file",
+].find((p) => {
+  try { return fs.existsSync(p); } catch { return false; }
+});
+
+const env = envFile
+  ? Object.fromEntries(
+      fs.readFileSync(envFile, "utf8")
+        .split("\n").filter((l) => /^[A-Z_]+=/.test(l))
+        .map((l) => { const i = l.indexOf("="); return [l.slice(0, i), l.slice(i + 1).trim().replace(/^["']|["']$/g, "")]; })
+    )
+  : process.env;
 
 // ── setup ──────────────────────────────────────────────────────────────
 const login = async (email, password) =>

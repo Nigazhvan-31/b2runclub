@@ -9,7 +9,7 @@
     "dev": "node scripts/local-schema.mjs && prisma generate --schema prisma/schema.local.prisma && tsx src/server.ts",
     "generate:local": "node scripts/local-schema.mjs && prisma generate --schema prisma/schema.local.prisma",
     "//start": "Migrations run at start, not build: on Render the persistent disk holding the database is only mounted at runtime, so a build-time migrate would target a throwaway filesystem.",
-    "start": "prisma migrate deploy && node dist/seed.js && node dist/server.js",
+    "start": "node scripts/pre-migrate.mjs && prisma migrate deploy && node dist/seed.js && node dist/server.js",
     "test:api": "node dist/test-api.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

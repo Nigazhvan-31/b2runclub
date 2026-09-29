@@ -6,7 +6,7 @@
 # failure at deploy time rather than here:
 #
 #   1. prisma/schema.prisma      provider "sqlite" -> "postgresql"
-#   2. prisma/migrations/0_init  the SQLite CREATE TABLEs -> the Postgres ones
+#   2. prisma/migrations/00_init the SQLite CREATE TABLEs -> the Postgres ones
 #
 # The migration matters because `npm start` runs `prisma migrate deploy`. Left as
 # SQLite SQL it would be replayed against Postgres and fail partway through,
@@ -21,7 +21,7 @@ cd "$(dirname "$0")/.."
 
 SCHEMA="prisma/schema.prisma"
 PG_SQL="prisma/postgres/init.sql"
-MIGRATION="prisma/migrations/0_init/migration.sql"
+MIGRATION="prisma/migrations/00_init/migration.sql"
 
 if ! grep -q 'provider = "sqlite"' "$SCHEMA"; then
     echo "  Schema is already not SQLite — nothing to do."

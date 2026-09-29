@@ -23,6 +23,21 @@ router.post("/register", async (req, res) => {
             return;
         }
         /*
+         * The same floor the reset and change-password routes apply.
+         *
+         * This route did not have it, so the one place a password is first
+         * chosen was the one place any length was accepted — "abc" made a real
+         * account. The signup form has always said "At least 8 characters" and
+         * checked it in the browser, which is not enforcement: anything posting
+         * to the API directly bypassed it, and the two routes that *do* enforce
+         * it then refused to let the member change their password to something
+         * shorter than the one they already had.
+         */
+        if (String(password).length < 8) {
+            res.status(400).json({ error: "Use at least 8 characters for your password" });
+            return;
+        }
+        /*
          * The member's own number, required at signup because the club needs a
          * way to reach the person who is actually running. Distinct from
          * emergency_contact, which is somebody else's.

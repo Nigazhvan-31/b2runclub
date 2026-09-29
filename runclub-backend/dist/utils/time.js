@@ -17,9 +17,12 @@
  * a locale formatter in backend code without a zone.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CLUB_TIME_ZONE = void 0;
+exports.DEFAULT_HOLD_MINUTES = exports.CLUB_TIME_ZONE = void 0;
 exports.formatEventWhen = formatEventWhen;
 exports.formatEventDate = formatEventDate;
+exports.formatSheetDateTime = formatSheetDateTime;
+exports.holdDeadline = holdDeadline;
+exports.timeRemaining = timeRemaining;
 /** IANA zone for every event the club runs. */
 exports.CLUB_TIME_ZONE = "Asia/Kolkata";
 /**
@@ -48,4 +51,54 @@ function formatEventDate(date) {
         year: "numeric",
         timeZone: exports.CLUB_TIME_ZONE,
     }).format(date);
+}
+/**
+ * "20/09/2026 06:00" — a sortable stamp for a spreadsheet cell.
+ *
+ * Exports get their own format because a reader opening the file in Excel has
+ * no way to ask what zone a bare time is in. Day-first to match how the club
+ * writes dates, zero-padded so a column of them sorts as text.
+ */
+function formatSheetDateTime(date) {
+    if (!date)
+        return "";
+    const parts = new Intl.DateTimeFormat("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: exports.CLUB_TIME_ZONE,
+    }).formatToParts(date);
+    const get = (t) => parts.find((p) => p.type === t)?.value ?? "";
+    return `${get("day")}/${get("month")}/${get("year")} ${get("hour")}:${get("minute")}`;
+}
+/**
+ * How long a member has to pay before their places go back on sale.
+ *
+ * A day, as the club asked. Per-event overrides sit on `Event.hold_minutes`;
+ * this is what a session that has not set one gets.
+ */
+exports.DEFAULT_HOLD_MINUTES = 24 * 60;
+/** The deadline a booking made now would be given, for an event's setting. */
+function holdDeadline(holdMinutes, from = new Date()) {
+    const minutes = holdMinutes && holdMinutes > 0 ? holdMinutes : exports.DEFAULT_HOLD_MINUTES;
+    return new Date(from.getTime() + minutes * 60_000);
+}
+/**
+ * "in 22 hours" / "in 35 minutes" — how long is left on a hold.
+ *
+ * Rounded down, because a member told "1 hour left" at 1 hour 59 minutes and
+ * locked out 59 minutes later would be right to complain.
+ */
+function timeRemaining(deadline, from = new Date()) {
+    const ms = deadline.getTime() - from.getTime();
+    if (ms <= 0)
+        return "no time left";
+    const minutes = Math.floor(ms / 60_000);
+    if (minutes < 60)
+        return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours} hour${hours === 1 ? "" : "s"}`;
 }

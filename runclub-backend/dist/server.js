@@ -56,6 +56,7 @@ const results_router_1 = __importDefault(require("./routes/results.router"));
 const health_router_1 = __importDefault(require("./routes/health.router"));
 const db_router_1 = __importDefault(require("./routes/db.router"));
 const reminders_1 = require("./utils/reminders");
+const holds_1 = require("./utils/holds");
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
 // CORS configuration
@@ -79,18 +80,24 @@ app.use(express_1.default.json({
  * Disabled rather than left open when CRON_SECRET is unset, since it sends real
  * email. `?key=` is accepted too, for schedulers that cannot set a header.
  */
-app.all("/api/cron/reminders", async (req, res) => {
+/** Shared gate for the cron endpoints below. Returns false once it has replied. */
+function cronAuthorised(req, res) {
     const secret = process.env.CRON_SECRET?.trim();
     if (!secret) {
         res.status(503).json({ error: "CRON_SECRET is not configured" });
-        return;
+        return false;
     }
     const supplied = req.header("authorization")?.replace(/^Bearer\s+/i, "").trim() ||
         (typeof req.query.key === "string" ? req.query.key : "");
     if (supplied !== secret) {
         res.status(401).json({ error: "Unauthorized" });
-        return;
+        return false;
     }
+    return true;
+}
+app.all("/api/cron/reminders", async (req, res) => {
+    if (!cronAuthorised(req, res))
+        return;
     try {
         const summary = await (0, reminders_1.sweepReminders)();
         res.json({ ok: true, ...summary });
@@ -98,6 +105,27 @@ app.all("/api/cron/reminders", async (req, res) => {
     catch (error) {
         console.error("[cron] sweep failed:", error?.message || error);
         res.status(500).json({ error: error?.message || "Sweep failed" });
+    }
+});
+/**
+ * Expiry and payment-nudge sweep, for schedulers.
+ *
+ * Separate from the reminder sweep because it needs to run far more often. A
+ * 24-hour hold checked once a day is a hold of anywhere between 24 and 48
+ * hours, which is not what a member was promised and not what frees a place in
+ * time for anybody else to take it. Point a scheduler at this every 5–15
+ * minutes; the sweep is idempotent, so over-calling it costs only a query.
+ */
+app.all("/api/cron/holds", async (req, res) => {
+    if (!cronAuthorised(req, res))
+        return;
+    try {
+        const summary = await (0, holds_1.sweepHolds)();
+        res.json({ ok: true, ...summary });
+    }
+    catch (error) {
+        console.error("[cron] hold sweep failed:", error?.message || error);
+        res.status(500).json({ error: error?.message || "Hold sweep failed" });
     }
 });
 // Apply JWT authentication parser globally
@@ -283,6 +311,9 @@ if (process.env.NODE_ENV !== "test" && !isServerless) {
         // Sweeps for due event reminders. Guarded out of the test env so the
         // integration suite never fires email as a side effect.
         (0, reminders_1.startReminderScheduler)();
+        // Expires unpaid holds and sends the awaiting-payment nudge. Same
+        // guard, same reason.
+        (0, holds_1.startHoldScheduler)();
     });
 }
 exports.default = app;

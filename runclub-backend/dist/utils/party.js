@@ -9,10 +9,12 @@
  * kind of mismatch that shows up as an oversold event on a Saturday morning.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DISCOUNT_MIN_PARTY = exports.MAX_PARTY_SIZE = void 0;
+exports.DEFAULT_DISCOUNT_MIN_PARTY = exports.MAX_PARTY_SIZE = void 0;
 exports.parseGuests = parseGuests;
+exports.discountMinParty = discountMinParty;
 exports.priceParty = priceParty;
 exports.seatCost = seatCost;
+const phone_1 = require("./phone");
 /**
  * Ceiling on a single booking, the member included.
  *
@@ -31,8 +33,15 @@ const MAX_NAME_LENGTH = 60;
  * request: their row is built from their account name by the caller. Accepting
  * it would let somebody book under a name that is not theirs, which defeats the
  * point of collecting names at all.
+ *
+ * Each guest needs a reachable mobile number, because the club adds every
+ * participant to the event's WhatsApp group by number. `use_booker_phone` on a
+ * guest copies the booker's, for a child or a partner who has none of their
+ * own — resolved to a real number here rather than stored as a flag, so the
+ * roster has a number against every name and nothing downstream has to know
+ * the difference.
  */
-function parseGuests(raw, event) {
+function parseGuests(raw, event, bookerPhone) {
     if (raw === undefined || raw === null)
         return { ok: true, guests: [] };
     if (!Array.isArray(raw)) {
@@ -73,12 +82,49 @@ function parseGuests(raw, event) {
                 };
             }
         }
-        guests.push({ name, kind });
+        /*
+         * The number. Either the booker's, ticked through from the form, or one
+         * typed for this person — and in the second case it has to survive the
+         * same normalisation as an account's own number, so the roster is one
+         * consistent column of E.164 rather than a mix of formats that cannot
+         * be pasted into WhatsApp.
+         */
+        let phone;
+        if (entry.use_booker_phone === true) {
+            phone = bookerPhone;
+        }
+        else {
+            const normalised = (0, phone_1.normalisePhone)(entry.phone);
+            if (!normalised.ok) {
+                return {
+                    ok: false,
+                    error: `${name || `Guest ${position}`}: ${normalised.error}`,
+                };
+            }
+            phone = normalised.e164;
+        }
+        guests.push({ name, kind, phone });
     }
     return { ok: true, guests };
 }
-/** The smallest party that earns the group discount. */
-exports.DISCOUNT_MIN_PARTY = 2;
+/**
+ * The smallest party that earns the group discount, when an event has not said
+ * otherwise.
+ *
+ * Was the only answer: a constant, so changing it meant a deployment. Events
+ * now carry `discount_min_party` and this is the fallback for the ones that
+ * leave it blank — which is every event created before it existed, so they all
+ * keep the behaviour they had.
+ */
+exports.DEFAULT_DISCOUNT_MIN_PARTY = 2;
+/** What this event requires, falling back to the club default. */
+function discountMinParty(event) {
+    const configured = event.discount_min_party;
+    /* Guarded rather than trusted. A zero or a negative would make the
+       discount unconditional, which is not what "minimum party size" can mean
+       — and one is the same as unconditional, so the floor is two. */
+    return configured && configured >= 2 ? Math.floor(configured) : exports.DEFAULT_DISCOUNT_MIN_PARTY;
+}
 /**
  * What a party owes, in paise.
  *
@@ -115,7 +161,8 @@ function priceParty(input) {
      * of zero is already handled everywhere as a free booking.
      */
     const configured = Math.round(Math.max(0, event.party_discount ?? 0) * 100);
-    const discountPaise = partySize >= exports.DISCOUNT_MIN_PARTY ? Math.min(configured, grossPaise) : 0;
+    const minParty = discountMinParty(event);
+    const discountPaise = partySize >= minParty ? Math.min(configured, grossPaise) : 0;
     return {
         partySize,
         adults,
