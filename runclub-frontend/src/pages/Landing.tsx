@@ -172,8 +172,6 @@ export function Landing() {
   // ── Hero entrance choreography (GSAP) ──
   const heroRef = useRef<HTMLElement>(null);
   const heroPillRef = useRef<HTMLSpanElement>(null);
-  const heroHeadlineRef = useRef<HTMLHeadingElement>(null);
-  const heroParagraphRef = useRef<HTMLParagraphElement>(null);
   const heroButtonsRef = useRef<HTMLDivElement>(null);
   const heroBtnPrimaryRef = useRef<HTMLAnchorElement>(null);
   const heroBtnSecondaryRef = useRef<HTMLAnchorElement>(null);
@@ -185,13 +183,6 @@ export function Landing() {
 
   useGSAP(
     () => {
-      const headlineSplit = heroHeadlineRef.current
-        ? new SplitText(heroHeadlineRef.current, { type: "words", wordsClass: "hero-word" })
-        : null;
-      if (headlineSplit) {
-        gsap.set(headlineSplit.words, { display: "inline-block" });
-      }
-
       const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
 
       tl.fromTo(
@@ -200,28 +191,16 @@ export function Landing() {
         { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "back.out(1.7)" },
       )
         .fromTo(
-          headlineSplit ? headlineSplit.words : heroHeadlineRef.current,
-          { opacity: 0, y: 40, rotateX: -40, transformOrigin: "50% 100%" },
-          { opacity: 1, y: 0, rotateX: 0, duration: 0.8, stagger: 0.08, ease: "power4.out" },
-          "-=0.25",
-        )
-        .fromTo(
-          heroParagraphRef.current,
-          { opacity: 0, y: 16 },
-          { opacity: 1, y: 0, duration: 0.5 },
-          "-=0.4",
-        )
-        .fromTo(
           [heroBtnPrimaryRef.current, heroBtnSecondaryRef.current, heroBtnGhostRef.current].filter(Boolean),
           { opacity: 0, y: 14 },
           { opacity: 1, y: 0, duration: 0.45, stagger: 0.08 },
-          "-=0.3",
+          "-=0.15",
         )
         .fromTo(
           heroGraphicRef.current,
           { opacity: 0, scale: 0.96 },
           { opacity: 1, scale: 1, duration: 1.1, ease: "power2.out" },
-          "-=1.0",
+          "-=0.4",
         )
         .fromTo(
           heroSpotlightRef.current,
@@ -275,7 +254,6 @@ export function Landing() {
       }
 
       return () => {
-        headlineSplit?.revert();
         if (sectionEl && handlePointerMove && handlePointerLeave) {
           sectionEl.removeEventListener("pointermove", handlePointerMove);
           sectionEl.removeEventListener("pointerleave", handlePointerLeave);
@@ -321,41 +299,40 @@ export function Landing() {
             </span>
           </span>
 
-          <h1
-            ref={heroHeadlineRef}
-            className="display mt-6 text-[clamp(44px,9vw,86px)]"
-            style={{ perspective: "600px" }}
-          >
-            Find your
-            <br />
-            <span className="text-gold">stride.</span>
-          </h1>
-
-          <p ref={heroParagraphRef} className="mt-6 max-w-xl text-[17px] leading-relaxed text-ink-2">
-            A running club that actually runs on time. Pick a session, sign the waiver, pay once,
-            and turn up with a ticket in your pocket.
-          </p>
-
-          <div ref={heroButtonsRef} className="mt-9 flex flex-wrap items-center gap-3">
-            <Link ref={heroBtnPrimaryRef} to="/calendar" className={buttonClass("gold", "lg", "sweep")}>
-              See the calendar
-              <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
-                <path
-                  d="M5 12h14m-6-6 6 6-6 6"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </Link>
-            {!user && (
-              <Link ref={heroBtnSecondaryRef} to="/signup" className={buttonClass("outline", "lg")}>
-                Join the club
+          <div ref={heroButtonsRef} className="mt-8 flex flex-wrap items-center gap-4">
+            {!user ? (
+              <Link ref={heroBtnPrimaryRef} to="/signup" className={buttonClass("gold", "lg", "sweep")}>
+                Join Us
+                <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+                  <path
+                    d="M5 12h14m-6-6 6 6-6 6"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </Link>
+            ) : (
+              <Link ref={heroBtnPrimaryRef} to="/calendar" className={buttonClass("gold", "lg", "sweep")}>
+                See the calendar
+                <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+                  <path
+                    d="M5 12h14m-6-6 6 6-6 6"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </Link>
             )}
-            <Link ref={heroBtnGhostRef} to="/events" className={buttonClass("ghost", "lg")}>
-              All events
+            <Link
+              ref={heroBtnGhostRef}
+              to="/events"
+              className="text-[14px] font-medium text-ink-3 transition-colors hover:text-gold"
+            >
+              or see what's on →
             </Link>
           </div>
         </div>
