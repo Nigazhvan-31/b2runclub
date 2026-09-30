@@ -14,7 +14,6 @@ import { CLUB_MONOGRAM, CLUB_NAME, CLUB_TAGLINE, CLUB_WORDMARK } from "../lib/br
 import { cn, instagramHandle, instagramHref, relativeTime, ROLE_META, stravaHref } from "../lib/format";
 import type { Notification } from "../lib/types";
 import { useFetch } from "../lib/useFetch";
-import { CreatorsCredit } from "./creatorsLogo";
 import { InstagramIcon, MailIcon, StravaIcon, WhatsAppIcon } from "./icons";
 import { Avatar, buttonClass } from "./ui";
 
@@ -942,14 +941,12 @@ export function Footer() {
           </FooterColumn>
         </div>
 
-        {/* Bottom bar: copyright and the creators' credit, which is distinct from
-            the club's own mark and so kept quiet and separate. */}
+        {/* Bottom bar: copyright */}
         <div className="hairline mt-10 mb-6" />
-        <div className="flex flex-col-reverse items-start gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center justify-between">
           <p className="text-xs text-ink-3">
             © {new Date().getFullYear()} {CLUB_NAME}. All rights reserved.
           </p>
-          <CreatorsCredit />
         </div>
       </div>
     </footer>
