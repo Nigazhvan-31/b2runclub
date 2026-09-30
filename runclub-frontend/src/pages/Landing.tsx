@@ -13,9 +13,7 @@ import { HeroVideo } from "../components/heroVideo";
 import { RunnerScene } from "../components/scene3d";
 import {
   CalendarIcon,
-  ClockIcon,
   DisciplineIcon,
-  PinIcon,
   SparkIcon,
   TicketIcon,
 } from "../components/icons";
@@ -130,7 +128,7 @@ function useCardReveal(
 }
 
 export function Landing() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const load = useCallback(() => api.events(), []);
   const { data: events, loading } = useFetch(load);
@@ -401,12 +399,21 @@ export function Landing() {
                         {next.price === 0 ? "Free" : inr(next.price)}
                       </p>
                     </div>
-                    <Link
-                      to={`/events/${next.id}`}
-                      className={buttonClass("gold", "md", "mb-1 w-full sm:w-auto")}
-                    >
-                      Take a spot
-                    </Link>
+                    {isAdmin ? (
+                      <Link
+                        to={`/raceday/${next.id}`}
+                        className={buttonClass("gold", "md", "mb-1 w-full sm:w-auto")}
+                      >
+                        Manage event
+                      </Link>
+                    ) : (
+                      <Link
+                        to={`/events/${next.id}`}
+                        className={buttonClass("gold", "md", "mb-1 w-full sm:w-auto")}
+                      >
+                        Take a spot
+                      </Link>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -669,54 +676,6 @@ export function Landing() {
 
       {/* ── Founders ─────────────────────────────────────── */}
       <Founders />
-
-      {/* ── On the day ───────────────────────────────────── */}
-      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-        <Reveal>
-          <div className="datastrip mb-10" />
-          <div className="grid gap-8 lg:grid-cols-[1fr_1.1fr] lg:items-center">
-            <div>
-              <p className="eyebrow mb-2 text-gold">On the day</p>
-              <h2 className="display text-[clamp(26px,3.6vw,38px)]">
-                Turn up fifteen minutes early.
-              </h2>
-              <p className="mt-5 text-[15px] leading-relaxed text-ink-2">
-                There's a briefing before every session — the route, the junctions, where the
-                marshals will be. Bring water and your own nutrition for anything over 10&nbsp;km.
-              </p>
-              <div className="mt-7 flex flex-wrap gap-3">
-                <Link to="/calendar" className={buttonClass("gold", "md")}>
-                  Pick a session
-                </Link>
-                <Link to="/about" className={buttonClass("outline", "md")}>
-                  About the club
-                </Link>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[
-                { Icon: ClockIcon, t: "Briefing at −15", b: "Route, junctions, bag drop." },
-                { Icon: PinIcon, t: "Marshalled corners", b: "Gold bibs. Follow their calls." },
-                { Icon: TicketIcon, t: "Scan and go", b: "QR at the start line." },
-                { Icon: SparkIcon, t: "Coffee after", b: "Always. Non-negotiable." },
-              ].map((x, i) => (
-                <Reveal key={x.t} delay={i * 0.05}>
-                  <Tilt max={7} lift={8}>
-                    <Card hover className="hud edge-gold h-full p-5">
-                      <span className="grid size-9 place-items-center rounded-xl border border-gold/25 bg-gold/8 text-gold">
-                        <x.Icon className="size-4" />
-                      </span>
-                      <p className="mt-3 text-[14px] font-semibold text-ink">{x.t}</p>
-                      <p className="mt-1 text-[12.5px] text-ink-3">{x.b}</p>
-                    </Card>
-                  </Tilt>
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </Reveal>
-      </section>
 
       {/* ── Community channels ───────────────────────────── */}
       <CommunityLinks />

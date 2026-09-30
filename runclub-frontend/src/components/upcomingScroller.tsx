@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { cn, countdown, inr } from "../lib/format";
+import { useAuth } from "../lib/auth";
 import type { ClubEvent } from "../lib/types";
 import { EventCoverBackdrop, EventMeta } from "./eventCover";
 import { DisciplineIcon } from "./icons";
@@ -27,6 +28,7 @@ const arrowClass =
 
 /** One session, as the spotlight panel. Unchanged from the single-card version. */
 function SpotlightCard({ event, label }: { event: ClubEvent; label: string }) {
+  const { isAdmin } = useAuth();
   return (
     <Tilt className="h-full">
       {/* card-glow, so the session reads as a distinct object over the hero
@@ -68,12 +70,21 @@ function SpotlightCard({ event, label }: { event: ClubEvent; label: string }) {
                 {event.price === 0 ? "Free" : inr(event.price)}
               </p>
             </div>
-            <Link
-              to={`/events/${event.id}`}
-              className={buttonClass("gold", "md", "mb-1 w-full sm:w-auto")}
-            >
-              Take a spot
-            </Link>
+            {isAdmin ? (
+              <Link
+                to={`/raceday/${event.id}`}
+                className={buttonClass("gold", "md", "mb-1 w-full sm:w-auto")}
+              >
+                Manage event
+              </Link>
+            ) : (
+              <Link
+                to={`/events/${event.id}`}
+                className={buttonClass("gold", "md", "mb-1 w-full sm:w-auto")}
+              >
+                Take a spot
+              </Link>
+            )}
           </div>
         </div>
       </Card>

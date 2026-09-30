@@ -107,11 +107,11 @@ export function RaceDay() {
           This one is the better of the two: it names where it goes and still
           works on a hard refresh, where a history pop has nowhere to land. */}
       <Link
-        to={`/events/${event.id}`}
+        to={isAdmin ? "/admin/events" : `/events/${event.id}`}
         className="mb-6 inline-flex max-w-full items-center gap-1.5 text-[13px] text-ink-3 transition-colors hover:text-gold"
       >
         <span aria-hidden>←</span>
-        <span className="truncate">Back to {event.title}</span>
+        <span className="truncate">{isAdmin ? "Back to manage events" : `Back to ${event.title}`}</span>
       </Link>
 
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -129,9 +129,19 @@ export function RaceDay() {
             </span>
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={reload}>
-          Refresh
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {isAdmin && (
+            <Link
+              to={`/events/${event.id}?preview=true`}
+              className={buttonClass("ghost", "sm")}
+            >
+              Preview runner page
+            </Link>
+          )}
+          <Button variant="outline" size="sm" onClick={reload}>
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* ── Turnout ─────────────────────────────────────── */}

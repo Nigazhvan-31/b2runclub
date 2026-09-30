@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link, useParams } from "react-router-dom";
+import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { CancelRegistrationDialog } from "../components/cancelDialog";
 import { RegisterDialog, TicketModal } from "../components/events";
 import { EventFeedbackCard, FeedbackSummaryCard } from "../components/eventFeedback";
@@ -49,8 +49,14 @@ const EVENT_STATUS_TINT: Record<string, string> = {
 
 export function EventDetail() {
   const { id = "" } = useParams();
+  const [searchParams] = useSearchParams();
   const { user, canRegister, isAdmin, role } = useAuth();
   const toast = useToast();
+  const isPreview = searchParams.get("preview") === "true";
+
+  if (isAdmin && !isPreview) {
+    return <Navigate to={`/raceday/${id}`} replace />;
+  }
 
   const loadEvent = useCallback(() => api.event(id), [id]);
   const { data: event, loading, error, reload } = useFetch(loadEvent);
@@ -570,6 +576,19 @@ export function EventDetail() {
                   All {event.capacity} places are taken. Registrations sometimes free up —
                   check back, or ask an organiser in the forum about a waiting list.
                 </p>
+              </div>
+            ) : isAdmin ? (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-gold/30 bg-gold/5 p-3.5 text-center">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-gold">Organiser Preview</p>
+                  <p className="mt-1 text-[13px] text-ink-2">You are previewing the runner view.</p>
+                </div>
+                <Link to={`/raceday/${event.id}`} className={buttonClass("gold", "md", "w-full")}>
+                  Open event-day console
+                </Link>
+                <Link to={`/scan?event=${event.id}`} className={buttonClass("outline", "md", "w-full")}>
+                  Scan tickets
+                </Link>
               </div>
             ) : canRegister ? (
               <div className="space-y-3">
