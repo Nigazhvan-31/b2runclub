@@ -25,9 +25,25 @@ function authenticateJWT(req, res, next) {
         next();
     }
 }
+const prisma_1 = __importDefault(require("../utils/prisma"));
 function requireRole(allowedRoles) {
-    return (req, res, next) => {
-        const userRole = req.user ? req.user.role : "VISITOR";
+    return async (req, res, next) => {
+        let userRole = req.user ? req.user.role : "VISITOR";
+        if (req.user?.id && !allowedRoles.includes(userRole)) {
+            try {
+                const dbUser = await prisma_1.default.user.findUnique({
+                    where: { id: req.user.id },
+                    select: { role: true },
+                });
+                if (dbUser) {
+                    userRole = dbUser.role;
+                    req.user.role = dbUser.role;
+                }
+            }
+            catch {
+                /* retain userRole from token */
+            }
+        }
         if (allowedRoles.includes(userRole)) {
             next();
         }

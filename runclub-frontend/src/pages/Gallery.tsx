@@ -26,9 +26,97 @@ import { DUR, EASE } from "../lib/motion";
 import type { Photo } from "../lib/types";
 import { useFetch } from "../lib/useFetch";
 
-/** 8MB, matching the backend's multer limit. */
-const MAX_BYTES = 8 * 1024 * 1024;
+/** Max raw file size allowed to be selected (25MB). Auto-optimised client-side before network upload. */
+const MAX_INPUT_BYTES = 25 * 1024 * 1024;
 const ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/avif";
+
+/**
+ * Ensures any image file of any pixel dimension or size (landscape, portrait, square, panorama)
+ * is optimised to fit comfortably within upload and display limits without visual quality loss.
+ */
+async function optimiseImageFile(
+  file: File,
+): Promise<{ file: File; dimensions: { width: number; height: number; orientation: string } }> {
+  if (!file.type.startsWith("image/") || file.type === "image/gif" || file.type === "image/svg+xml") {
+    return { file, dimensions: { width: 0, height: 0, orientation: "image" } };
+  }
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const origWidth = img.naturalWidth || img.width;
+        const origHeight = img.naturalHeight || img.height;
+        const orientation =
+          origWidth > origHeight * 1.15
+            ? "Landscape"
+            : origHeight > origWidth * 1.15
+              ? "Portrait"
+              : "Square";
+
+        const MAX_DIM = 2560; // 2.5K pixels: pin-sharp for 4K displays and phones alike
+        let targetWidth = origWidth;
+        let targetHeight = origHeight;
+
+        if (targetWidth > targetHeight) {
+          if (targetWidth > MAX_DIM) {
+            targetHeight = Math.round((targetHeight * MAX_DIM) / targetWidth);
+            targetWidth = MAX_DIM;
+          }
+        } else {
+          if (targetHeight > MAX_DIM) {
+            targetWidth = Math.round((targetWidth * MAX_DIM) / targetHeight);
+            targetHeight = MAX_DIM;
+          }
+        }
+
+        // If image is already reasonably sized (< 2MB and under MAX_DIM), preserve exact original
+        if (origWidth <= MAX_DIM && origHeight <= MAX_DIM && file.size <= 2 * 1024 * 1024) {
+          resolve({ file, dimensions: { width: origWidth, height: origHeight, orientation } });
+          return;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve({ file, dimensions: { width: origWidth, height: origHeight, orientation } });
+          return;
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve({ file, dimensions: { width: origWidth, height: origHeight, orientation } });
+              return;
+            }
+            const cleanName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+            const processed = new File([blob], cleanName, {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            });
+            resolve({
+              file: processed,
+              dimensions: { width: targetWidth, height: targetHeight, orientation },
+            });
+          },
+          "image/jpeg",
+          0.88,
+        );
+      };
+      img.onerror = () => resolve({ file, dimensions: { width: 0, height: 0, orientation: "image" } });
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => resolve({ file, dimensions: { width: 0, height: 0, orientation: "image" } });
+    reader.readAsDataURL(file);
+  });
+}
 
 export function Gallery() {
   const { role, user } = useAuth();
@@ -37,8 +125,8 @@ export function Gallery() {
   const load = useCallback(() => api.gallery(), []);
   const { data, loading, error, reload, setData } = useFetch(load);
 
-  /** Only organisers and volunteers may contribute; everyone else views. */
-  const canPost = role === "ADMIN" || role === "VOLUNTEER";
+  /** Club members, volunteers and admins can all add photos. */
+  const canPost = Boolean(user && role !== "VISITOR");
   const isAdmin = role === "ADMIN";
 
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -91,20 +179,21 @@ export function Gallery() {
       <PageHeader
         eyebrow="Club gallery"
         title="Gallery"
-        description={
-          canPost
-            ? "Shots from the road, the trail and the after-party. Organisers and volunteers can add to it."
-            : "Shots from the road, the trail and the after-party, posted by the crew who run the sessions."
-        }
+        description="Shots from the road, the trail and the after-party, posted by the B² community."
         action={
           canPost ? (
             <Button onClick={() => setUploadOpen(true)}>
               <SparkIcon className="size-3.5" />
               Add photos
             </Button>
+          ) : user ? (
+            <Button onClick={() => setUploadOpen(true)}>
+              <SparkIcon className="size-3.5" />
+              Add photos
+            </Button>
           ) : (
-            <Link to="/calendar" className={buttonClass("outline", "md")}>
-              Find a session
+            <Link to="/login" className={buttonClass("outline", "md")}>
+              Sign in to contribute
             </Link>
           )
         }
@@ -138,14 +227,17 @@ export function Gallery() {
         </div>
       )}
 
-      {/* View-only notice for members and visitors, so the absence of an
-          upload button is explained rather than just missing. */}
+      {/* View-only notice for visitors */}
       {!canPost && !loading && photos.length > 0 && (
-        <p className="mb-6 flex items-center gap-2 rounded-xl border border-white/8 bg-surface/60 px-4 py-3 text-[13px] text-ink-3">
-          <UsersIcon className="size-4 shrink-0" />
-          This is a view-only gallery. Organisers and volunteers post the photos — ask one of them
-          if you'd like a shot added.
-        </p>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/8 bg-surface/60 px-4 py-3 text-[13px] text-ink-3">
+          <p className="flex items-center gap-2">
+            <UsersIcon className="size-4 shrink-0" />
+            Club members can share photos from runs and club sessions.
+          </p>
+          <Link to="/login" className={buttonClass("outline", "sm")}>
+            Sign in to add photos →
+          </Link>
+        </div>
       )}
 
       {loading ? (
@@ -178,8 +270,7 @@ export function Gallery() {
           />
         </Card>
       ) : (
-        /* Masonry via CSS columns — keeps portrait and landscape shots at
-           their natural aspect ratio without cropping. */
+        /* Masonry via CSS columns — accommodates any aspect ratio naturally without distortion */
         <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 [&>*]:mb-4">
           {photos.map((p, i) => (
             <motion.div
@@ -192,20 +283,20 @@ export function Gallery() {
               <Tilt max={6} lift={8}>
                 <button
                   onClick={() => setLightbox(p)}
-                  className="group relative block w-full overflow-hidden rounded-[var(--radius-card)] border border-white/8 text-left"
+                  className="group relative block w-full overflow-hidden rounded-[var(--radius-card)] border border-white/8 bg-surface/40 text-left transition-colors hover:border-gold/40"
                   aria-label={p.caption ?? `Photo by ${p.uploader.name}`}
                 >
                   <img
                     src={p.url}
                     alt={p.caption ?? `Club photo by ${p.uploader.name}`}
                     loading="lazy"
-                    className="w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                    className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                   />
 
-                  {/* Caption plate, revealed on hover */}
-                  <span className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-2 bg-gradient-to-t from-void/95 via-void/70 to-transparent p-4 opacity-0 transition-all duration-400 group-hover:translate-y-0 group-hover:opacity-100">
+                  {/* Caption plate — visible on hover on desktop, subtly overlaid on touch devices */}
+                  <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-void/95 via-void/70 to-transparent p-4 transition-all duration-300 opacity-90 sm:opacity-0 sm:translate-y-2 sm:group-hover:opacity-100 sm:group-hover:translate-y-0">
                     {p.caption && (
-                      <span className="block text-[13px] font-medium leading-snug text-ink">
+                      <span className="block text-[13px] font-medium leading-snug text-ink drop-shadow-sm">
                         {p.caption}
                       </span>
                     )}
@@ -232,29 +323,30 @@ export function Gallery() {
       {/* Lightbox */}
       <AnimatePresence>
         {lightbox && (
-          <div className="fixed inset-0 z-50 grid place-items-center p-4 sm:p-8">
+          <div className="fixed inset-0 z-50 grid place-items-center p-3 sm:p-6 lg:p-8">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setLightbox(null)}
-              className="absolute inset-0 bg-void/92 backdrop-blur-sm"
+              className="absolute inset-0 bg-void/95 backdrop-blur-md"
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.96, rotateX: 6 }}
-              animate={{ opacity: 1, scale: 1, rotateX: 0 }}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.97 }}
               transition={{ duration: DUR.base, ease: EASE }}
-              style={{ perspective: 1200 }}
-              className="relative max-h-full w-full max-w-4xl"
+              className="relative max-h-full w-full max-w-5xl flex flex-col items-center"
             >
-              <img
-                src={lightbox.url}
-                alt={lightbox.caption ?? "Club photo"}
-                className="max-h-[74vh] w-full rounded-2xl border border-white/10 object-contain"
-              />
+              <div className="relative max-h-[76vh] max-w-full overflow-hidden rounded-2xl border border-white/12 bg-black/70 shadow-2xl flex items-center justify-center">
+                <img
+                  src={lightbox.url}
+                  alt={lightbox.caption ?? "Club photo"}
+                  className="max-h-[76vh] w-auto max-w-full object-contain block select-none"
+                />
+              </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div className="mt-4 flex w-full max-w-4xl flex-wrap items-center gap-3 px-2">
                 <Avatar name={lightbox.uploader.name} size={34} />
                 <div className="min-w-0 flex-1">
                   {lightbox.caption && (
@@ -275,7 +367,7 @@ export function Gallery() {
                   className={buttonClass("outline", "sm")}
                 >
                   <DownloadIcon className="size-3.5" />
-                  Open
+                  Open full size
                 </a>
 
                 {canDelete(lightbox) && (
@@ -313,11 +405,17 @@ function UploadModal({
   onAdded: (photo: Photo) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
+  const [imageDims, setImageDims] = useState<{ width: number; height: number; orientation: string }>({
+    width: 0,
+    height: 0,
+    orientation: "",
+  });
   const [preview, setPreview] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [eventId, setEventId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [optimising, setOptimising] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -337,11 +435,13 @@ function UploadModal({
   useEffect(() => {
     if (open) {
       setFile(null);
+      setImageDims({ width: 0, height: 0, orientation: "" });
       setCaption("");
       setLinkUrl("");
       setEventId("");
       setError(null);
       setDragging(false);
+      setOptimising(false);
     }
   }, [open]);
 
@@ -356,18 +456,27 @@ function UploadModal({
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  const accept = (f: File | undefined) => {
+  const accept = async (f: File | undefined) => {
     if (!f) return;
     if (!f.type.startsWith("image/")) {
-      setError("That's not an image file.");
+      setError("Please choose a valid image file (JPEG, PNG, WebP, GIF or AVIF).");
       return;
     }
-    if (f.size > MAX_BYTES) {
-      setError(`That image is ${(f.size / 1024 / 1024).toFixed(1)}MB — the limit is 8MB.`);
+    if (f.size > MAX_INPUT_BYTES) {
+      setError(`That image is ${(f.size / 1024 / 1024).toFixed(1)}MB — please choose an image under 25MB.`);
       return;
     }
     setError(null);
-    setFile(f);
+    setOptimising(true);
+    try {
+      const { file: optimised, dimensions } = await optimiseImageFile(f);
+      setFile(optimised);
+      setImageDims(dimensions);
+    } catch {
+      setFile(f);
+    } finally {
+      setOptimising(false);
+    }
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -401,7 +510,7 @@ function UploadModal({
       open={open}
       onClose={onClose}
       title="Add a photo"
-      subtitle="JPEG, PNG, WebP, GIF or AVIF, up to 8MB."
+      subtitle="Any size, resolution or orientation (landscape, portrait, square)."
       size="lg"
     >
       <form onSubmit={submit} className="space-y-5">
@@ -419,20 +528,31 @@ function UploadModal({
           }}
           onClick={() => inputRef.current?.click()}
           className={cn(
-            "grid cursor-pointer place-items-center rounded-xl border border-dashed p-6 text-center transition-colors",
+            "grid cursor-pointer place-items-center rounded-xl border border-dashed p-4 sm:p-6 text-center transition-colors",
             dragging ? "border-gold bg-gold/8" : "border-white/14 hover:border-gold/45",
           )}
         >
-          {preview ? (
+          {optimising ? (
+            <div className="py-8">
+              <span className="mx-auto block size-6 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+              <p className="mt-3 text-[13px] text-ink-2">Fitting and optimising photo dimensions…</p>
+            </div>
+          ) : preview ? (
             <div className="w-full">
-              <img
-                src={preview}
-                alt="Preview"
-                className="mx-auto max-h-56 rounded-lg object-contain"
-              />
-              <p className="mt-3 text-[12px] text-ink-3">
-                {file?.name} · {((file?.size ?? 0) / 1024).toFixed(0)} KB · click to change
-              </p>
+              <div className="mx-auto flex h-60 w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-void/60 p-2">
+                <img
+                  src={preview}
+                  alt="Preview"
+                  className="max-h-full max-w-full rounded-lg object-contain shadow-lg"
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1 text-[12px] text-ink-3">
+                <span className="font-medium text-ink-2 truncate max-w-[200px] sm:max-w-xs">{file?.name}</span>
+                <span>
+                  {imageDims.width > 0 ? `${imageDims.width} × ${imageDims.height} (${imageDims.orientation}) · ` : ""}
+                  {((file?.size ?? 0) / 1024).toFixed(0)} KB · Click to replace
+                </span>
+              </div>
             </div>
           ) : (
             <div>
@@ -442,7 +562,7 @@ function UploadModal({
               <p className="mt-3 text-[13.5px] font-medium text-ink">
                 Drop an image here, or click to choose
               </p>
-              <p className="mt-1 text-[12px] text-ink-3">Straight from your phone or camera roll</p>
+              <p className="mt-1 text-[12px] text-ink-3">Any pixel size, orientation (landscape or portrait) or camera roll photo</p>
             </div>
           )}
           <input
@@ -459,7 +579,7 @@ function UploadModal({
             id="ph-caption"
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
-            placeholder="Sunrise at the river loop"
+            placeholder="e.g. WEEK 27 Trekking at Samanar Hill"
             maxLength={160}
           />
         </Field>
@@ -508,7 +628,7 @@ function UploadModal({
           <Button type="button" variant="outline" onClick={onClose} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" loading={busy} className="flex-1">
+          <Button type="submit" loading={busy || optimising} className="flex-1">
             Add to gallery
           </Button>
         </div>

@@ -249,14 +249,14 @@ router.get("/gallery", async (req: AuthRequest, res: Response): Promise<void> =>
 });
 
 /**
- * 2. Upload a photo — admins and volunteers only.
+ * 2. Upload a photo — club members, volunteers and admins.
  *
  * Accepts multipart/form-data with an `image` file, or a JSON body carrying an
- * external `url`. Members and visitors cannot reach this at all.
+ * external `url`. Unauthenticated visitors cannot reach this.
  */
 router.post(
     "/gallery",
-    requireRole(["ADMIN", "VOLUNTEER"]),
+    requireRole(["ADMIN", "VOLUNTEER", "MEMBER"]),
     (req: AuthRequest, res: Response) => {
         upload.single("image")(req as any, res as any, async (err: any) => {
             try {
@@ -303,7 +303,7 @@ router.post(
                     uploader: created.uploader,
                 };
 
-                res.status(211).json({ message: "Photo added to the gallery", photo });
+                res.status(201).json({ message: "Photo added to the gallery", photo });
             } catch (error: any) {
                 res.status(500).json({ error: error.message || "Failed to save the photo" });
             }
@@ -312,12 +312,12 @@ router.post(
 );
 
 /**
- * 3. Delete a photo. An admin may remove any; a volunteer only their own, so
- * one volunteer cannot delete another's work.
+ * 3. Delete a photo. An admin may remove any; a member or volunteer only their own, so
+ * one person cannot delete another's work.
  */
 router.delete(
     "/gallery/:id",
-    requireRole(["ADMIN", "VOLUNTEER"]),
+    requireRole(["ADMIN", "VOLUNTEER", "MEMBER"]),
     async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const photo = await prisma.photo.findUnique({ where: { id: req.params.id as string } });

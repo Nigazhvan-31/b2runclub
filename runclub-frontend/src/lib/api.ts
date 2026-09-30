@@ -174,9 +174,13 @@ async function request<T>(path: string, opts: Options = {}): Promise<T> {
  * browser has to add it along with the multipart boundary.
  */
 async function upload<T>(path: string, form: FormData, method = "POST"): Promise<T> {
-  const headers: Record<string, string> = {};
   const token = session.token();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  if (!token) {
+    throw new ApiError(401, "Please sign in to upload photos.");
+  }
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+  };
 
   const res = await fetch(`${BASE}${path}`, { method, headers, body: form });
 
@@ -192,6 +196,9 @@ async function upload<T>(path: string, form: FormData, method = "POST"): Promise
       if (data?.error) message = data.error;
     } catch {
       /* non-JSON error body */
+    }
+    if (res.status === 403 && (!message || message.startsWith("Upload failed") || message.includes("Forbidden"))) {
+      message = "You don't have permission to upload photos. Please sign in with your club account.";
     }
     throw new ApiError(res.status, message);
   }
