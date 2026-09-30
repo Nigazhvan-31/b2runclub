@@ -1,0 +1,1312 @@
+#!/usr/bin/env python3
+"""
+Generates the comprehensive B² Club Complete Handoff, Hosting & Implementation Guide
+both as a standalone HTML document and as an executive-grade PDF using Chrome Headless.
+"""
+
+import os
+import subprocess
+import sys
+
+OUTPUT_HTML = "/Users/nigazhvang/Desktop/b2runclub/B2_Club_Complete_Handoff_and_Hosting_Guide.html"
+OUTPUT_PDF = "/Users/nigazhvang/Desktop/b2runclub/B2_Club_Complete_Handoff_and_Hosting_Guide.pdf"
+
+html_content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>B² Club — Complete Ownership Transfer, Architecture &amp; Hosting Manual</title>
+<style>
+  @page {
+    size: A4;
+    margin: 16mm 16mm 18mm 16mm;
+    @bottom-right {
+      content: counter(page);
+    }
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #08090b;
+    color: #e2e8f0;
+    line-height: 1.5;
+    font-size: 13px;
+    margin: 0;
+    padding: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .cover-page {
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 90vh;
+    padding: 20px 10px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: rgba(229, 169, 60, 0.15);
+    color: #e5a93c;
+    border: 1px solid rgba(229, 169, 60, 0.35);
+    margin-bottom: 24px;
+    width: fit-content;
+  }
+
+  .cover-title {
+    font-size: 38px;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.15;
+    margin: 0 0 16px 0;
+    letter-spacing: -0.02em;
+  }
+
+  .cover-subtitle {
+    font-size: 16px;
+    color: #94a3b8;
+    line-height: 1.55;
+    margin: 0 0 28px 0;
+    max-width: 660px;
+  }
+
+  .metadata-card {
+    background: #10131a;
+    border: 1px solid #1e2433;
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    font-size: 12.5px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .metadata-item span {
+    display: block;
+    color: #64748b;
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .metadata-item strong {
+    color: #f1f5f9;
+    font-weight: 600;
+  }
+
+  .toc-page {
+    page-break-after: always;
+    padding: 20px 0;
+  }
+
+  .toc {
+    background: #10131a;
+    border: 1px solid #1e2433;
+    border-radius: 12px;
+    padding: 28px 32px;
+  }
+
+  .toc-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #e5a93c;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #1e2433;
+    padding-bottom: 8px;
+  }
+
+  .toc-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    font-size: 13px;
+  }
+
+  .toc-list li {
+    margin: 0;
+  }
+
+  .toc-list a {
+    color: #cbd5e1;
+    display: flex;
+    justify-content: space-between;
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.2s;
+  }
+
+  .toc-list a:hover {
+    background: #1a202c;
+    color: #e5a93c;
+  }
+
+  .chapter-break {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  h1, h2, h3, h4 {
+    color: #ffffff;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  h1 {
+    font-size: 24px;
+    margin-top: 36px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #1e2433;
+    color: #e5a93c;
+  }
+
+  h2 {
+    font-size: 17px;
+    margin-top: 26px;
+    margin-bottom: 12px;
+    color: #f8fafc;
+  }
+
+  h3 {
+    font-size: 14.5px;
+    margin-top: 18px;
+    margin-bottom: 8px;
+    color: #cbd5e1;
+  }
+
+  h4 {
+    font-size: 13px;
+    margin-top: 14px;
+    margin-bottom: 6px;
+    color: #94a3b8;
+  }
+
+  p {
+    margin: 0 0 12px 0;
+    color: #cbd5e1;
+  }
+
+  ul, ol {
+    margin: 0 0 14px 0;
+    padding-left: 22px;
+    color: #cbd5e1;
+  }
+
+  li {
+    margin-bottom: 6px;
+  }
+
+  a {
+    color: #60a5fa;
+    text-decoration: none;
+  }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    background: #141722;
+    color: #e2e8f0;
+    padding: 2px 5px;
+    border-radius: 4px;
+    border: 1px solid #23293a;
+  }
+
+  pre {
+    background: #0d0f15;
+    border: 1px solid #1c2230;
+    border-radius: 8px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: #e2e8f0;
+    margin: 0 0 14px 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  pre code {
+    background: transparent;
+    padding: 0;
+    border: none;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0 20px 0;
+    font-size: 11.5px;
+    background: #0d0f15;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #1c2230;
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  th, td {
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid #1c2230;
+  }
+
+  th {
+    background: #141720;
+    color: #e2e8f0;
+    font-weight: 600;
+    border-bottom: 2px solid #283044;
+  }
+
+  tr:nth-child(even) td {
+    background: rgba(255, 255, 255, 0.015);
+  }
+
+  .callout {
+    border-left: 4px solid #3b82f6;
+    background: #0f1523;
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 14px 0 18px 0;
+    font-size: 12.5px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .callout-warning {
+    border-left-color: #f59e0b;
+    background: #1a1508;
+  }
+
+  .callout-danger {
+    border-left-color: #ef4444;
+    background: #1c0e10;
+  }
+
+  .callout-success {
+    border-left-color: #10b981;
+    background: #0b1a14;
+  }
+
+  .callout-title {
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .diagram-box {
+    background: #0d0f15;
+    border: 1px solid #1e2433;
+    border-radius: 8px;
+    padding: 14px;
+    margin: 14px 0 20px 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.45;
+    color: #cbd5e1;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    white-space: pre;
+  }
+
+  .checklist {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .checklist li {
+    position: relative;
+    padding-left: 22px;
+    margin-bottom: 6px;
+  }
+
+  .checklist li::before {
+    content: "☐";
+    position: absolute;
+    left: 0;
+    color: #e5a93c;
+    font-weight: bold;
+  }
+
+  .tag-admin { color: #f87171; font-weight: 600; }
+  .tag-member { color: #60a5fa; font-weight: 600; }
+  .tag-vol { color: #34d399; font-weight: 600; }
+  .tag-pub { color: #94a3b8; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- PAGE 1: COVER -->
+<div class="cover-page">
+  <div class="badge">B² Club Engineering Documentation</div>
+  <h1 class="cover-title">B² Club Platform<br>Transfer, Architecture &amp; Hosting Manual</h1>
+  <p class="cover-subtitle">
+    The comprehensive technical reference, infrastructure specification, ownership transfer runbook,
+    and step-by-step hosting guide for the B² Club web application. Written so that any developer,
+    agency, or technical lead can pick up, transfer, deploy, and maintain this system with zero ambiguity.
+  </p>
+
+  <div class="metadata-card">
+    <div class="metadata-item">
+      <span>Production Web Application</span>
+      <strong><a href="https://b2club.in">https://b2club.in</a> (b2club.in)</strong>
+    </div>
+    <div class="metadata-item">
+      <span>Backend Serverless API</span>
+      <strong><a href="https://runclub-backend-navy.vercel.app">https://runclub-backend-navy.vercel.app</a></strong>
+    </div>
+    <div class="metadata-item">
+      <span>Source Code Repository</span>
+      <strong><a href="https://github.com/Nigazhvan-31/b2runclub">github.com/Nigazhvan-31/b2runclub</a> (branch: main)</strong>
+    </div>
+    <div class="metadata-item">
+      <span>Database &amp; Object Storage</span>
+      <strong>Postgres (Supabase Managed) &amp; Vercel Blob</strong>
+    </div>
+    <div class="metadata-item">
+      <span>Payment Gateway</span>
+      <strong>Razorpay Payment Gateway (Live Merchant Mode)</strong>
+    </div>
+    <div class="metadata-item">
+      <span>Primary Admin Contact</span>
+      <strong>burnandbond.club@gmail.com</strong>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 2: TABLE OF CONTENTS -->
+<div class="toc-page">
+  <div class="toc">
+    <div class="toc-title">Table of Contents</div>
+    <ul class="toc-list">
+      <li><a href="#ch1"><span>§1. Executive Summary &amp; Application Overview</span> <span>Page 3</span></a></li>
+      <li><a href="#ch2"><span>§2. Complete Ownership Transfer Playbook (Step-by-Step Handover)</span> <span>Page 4</span></a></li>
+      <li><a href="#ch3"><span>§3. Architecture, Hosting Topology &amp; Tech Stack</span> <span>Page 6</span></a></li>
+      <li><a href="#ch4"><span>§4. Environment Variables Reference (Exhaustive Table)</span> <span>Page 8</span></a></li>
+      <li><a href="#ch5"><span>§5. Database Architecture &amp; Prisma Migration Engine</span> <span>Page 11</span></a></li>
+      <li><a href="#ch6"><span>§6. Feature-by-Feature Implementation &amp; Business Rules</span> <span>Page 13</span></a></li>
+      <li><a href="#ch7"><span>§7. API Reference Specification</span> <span>Page 15</span></a></li>
+      <li><a href="#ch8"><span>§8. Scheduled Jobs, Automation &amp; Webhooks</span> <span>Page 17</span></a></li>
+      <li><a href="#ch9"><span>§9. Payment Processing &amp; Mobile App Eviction Recovery</span> <span>Page 18</span></a></li>
+      <li><a href="#ch10"><span>§10. Media Pipeline &amp; "Any Pixel Any Size" Optimizer</span> <span>Page 19</span></a></li>
+      <li><a href="#ch11"><span>§11. Zero-to-Live Production Hosting Guide</span> <span>Page 20</span></a></li>
+      <li><a href="#ch12"><span>§12. Local Development Setup (SQLite) &amp; Testing</span> <span>Page 22</span></a></li>
+      <li><a href="#ch13"><span>§13. Emergency Runbook &amp; Troubleshooting Guide</span> <span>Page 23</span></a></li>
+    </ul>
+  </div>
+</div>
+
+<!-- CHAPTER 1 -->
+<div id="ch1" class="chapter-break">
+  <h1>§1. Executive Summary &amp; Application Overview</h1>
+  <p>
+    <strong>B² Club</strong> is an all-in-one membership management, event ticketing, race-day execution,
+    and community platform built for Madurai's premier running club. The application enables runners to
+    discover upcoming weekend runs, treks, badminton leagues, and socials; sign up as individuals or parties;
+    secure payments online via Razorpay UPI and cards; hold spots under an automated 24-hour reservation window;
+    and receive verifiable QR code tickets scanned on the morning of each event.
+  </p>
+  <p>
+    For organizers, the platform provides a complete Race-Day Console: participant roster management with phone
+    numbers for WhatsApp group creation, person-by-person check-in scanning, marshal shift volunteer tracking,
+    split-timing checkpoints, Excel spreadsheet exports, and community photo galleries.
+  </p>
+
+  <h2>1.1 User Roles &amp; Permissions Matrix</h2>
+  <p>
+    The application defines four distinct user roles stored as plain uppercase strings on <code>User.role</code>:
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 15%;">Role</th>
+        <th style="width: 35%;">Permissions &amp; Capabilities</th>
+        <th style="width: 25%;">Access Gating</th>
+        <th style="width: 25%;">Pricing Policy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code class="tag-pub">VISITOR</code></td>
+        <td>Browse published events, view community photo gallery, read forum announcements, inspect club founders, view polls.</td>
+        <td>Unauthenticated or logged-out users default to this role.</td>
+        <td>N/A (cannot register without an account).</td>
+      </tr>
+      <tr>
+        <td><code class="tag-member">MEMBER</code></td>
+        <td>All visitor privileges, plus: register for events (adults &amp; kids), hold unpaid tickets for 24h, receive QR tickets, post comments in the forum, vote in polls, upload photos to the gallery, and track workout attendance.</td>
+        <td>Requires a confirmed email address (one-time OTP verification).</td>
+        <td>Standard adult &amp; kid event entry fees apply. Eligible for party group discounts.</td>
+      </tr>
+      <tr>
+        <td><code class="tag-vol">VOLUNTEER</code></td>
+        <td>All member privileges, plus: can claim marshal shifts on race morning, run the mobile QR camera ticket scanner to admit participants, and manage start-line check-ins.</td>
+        <td>Assigned by an Administrator from the members directory.</td>
+        <td><strong>Free entry</strong> for the volunteer's own spot. Any additional guests they register pay standard fees.</td>
+      </tr>
+      <tr>
+        <td><code class="tag-admin">ADMIN</code></td>
+        <td>Full platform authority: create, edit, draft, and publish events; view financial revenue overview; manage all registrations; issue Razorpay refunds; export roster workbooks (.xlsx); trigger hold/reminder sweeps; promote member roles; manage founders.</td>
+        <td>Authenticated via JWT with role <code>ADMIN</code>.</td>
+        <td>Full administrative access across all screens. Automatically routes to race-day console.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- CHAPTER 2 -->
+<div id="ch2" class="chapter-break">
+  <h1>§2. Complete Ownership Transfer Playbook</h1>
+  <p>
+    When handing over this application to a new owner, technical agency, or client IT team, six external
+    services must be transferred in sequence. Follow this exact playbook to guarantee zero downtime and no
+    loss of active runner data or payments.
+  </p>
+
+  <div class="callout callout-warning">
+    <div class="callout-title">⚠️ Handover Principle: Keep Services Active in Parallel</div>
+    Never shut down existing Vercel deployments or revoke existing database credentials until the recipient
+    has verified access on their own accounts. Transfer organizational ownership rather than recreating projects
+    wherever possible.
+  </div>
+
+  <h2>2.1 Git Repository Transfer (GitHub)</h2>
+  <ol>
+    <li>
+      <strong>Transfer Repository</strong>: Navigate to <code>GitHub &rarr; Settings &rarr; General &rarr; Danger Zone &rarr; Transfer ownership</code>.
+      Enter the recipient's GitHub username or Organization handle (e.g. <code>b2runclub-org</code>).
+    </li>
+    <li>
+      <strong>Update Remote URLs</strong>: The new developer runs:
+      <pre><code>git remote set-url origin https://github.com/NEW_OWNER/b2runclub.git
+git fetch --all</code></pre>
+    </li>
+    <li>
+      <strong>Maintain Branch Protection</strong>: Ensure branch protection on <code>main</code> requires passing status checks before merging.
+    </li>
+  </ol>
+
+  <h2>2.2 Vercel Project &amp; Custom Domain Transfer</h2>
+  <p>
+    The application runs as two distinct Vercel projects: <strong>Frontend</strong> (SPA) and <strong>Backend</strong> (Serverless Function).
+  </p>
+  <ol>
+    <li>
+      <strong>Invite Recipient</strong>: In Vercel, go to your Team/Account settings &rarr; <code>Members</code> &rarr; Invite the client email with <em>Admin</em> or <em>Owner</em> privileges.
+    </li>
+    <li>
+      <strong>Transfer Projects</strong>:
+      <ul>
+        <li>Frontend Project: Go to <code>Settings &rarr; General &rarr; Transfer Project</code> &rarr; Transfer to recipient's team.</li>
+        <li>Backend Project: Repeat for the backend serverless project.</li>
+      </ul>
+    </li>
+    <li>
+      <strong>Custom Domain Verification</strong>:
+      <ul>
+        <li>Domain <code>b2club.in</code> and <code>www.b2club.in</code> must remain assigned to the <strong>Frontend project</strong>.</li>
+        <li>DNS records at the registrar (e.g. Hostinger / GoDaddy):
+          <ul>
+            <li><code>A Record</code>: <code>@</code> points to <code>76.76.21.21</code></li>
+            <li><code>CNAME Record</code>: <code>www</code> points to <code>cname.vercel-dns.com</code></li>
+          </ul>
+        </li>
+      </ul>
+    </li>
+  </ol>
+
+  <h2>2.3 Supabase Database &amp; Storage Transfer</h2>
+  <ol>
+    <li>
+      <strong>Invite to Organization</strong>: In the Supabase Dashboard, select your Organization &rarr; <code>Members</code> &rarr; Invite new owner with <em>Owner</em> role.
+    </li>
+    <li>
+      <strong>Transfer Ownership</strong>: Once accepted, transfer primary organizational billing and ownership.
+    </li>
+    <li>
+      <strong>Rotate Database Passwords</strong>: Go to <code>Project Settings &rarr; Database &rarr; Database password</code>.
+      If resetting the password, immediately update <code>DATABASE_URL</code> and <code>DIRECT_URL</code> in Vercel backend environment variables!
+    </li>
+    <li>
+      <strong>Verify Storage Bucket</strong>: Confirm that the storage bucket <code>uploads</code> is set to <em>Public</em> so that uploaded photos, avatars, and route maps remain accessible.
+    </li>
+  </ol>
+
+  <h2>2.4 Razorpay Payment Gateway Handover</h2>
+  <ol>
+    <li>
+      <strong>Change Merchant Account Owner</strong>: In Razorpay Dashboard &rarr; <code>Settings &rarr; Account Settings &rarr; Users</code>.
+      Invite the new business administrator and transfer the primary account owner role.
+    </li>
+    <li>
+      <strong>Bank Account Verification</strong>: Verify that the linked bank account for daily settlements is updated to the club's current commercial bank account.
+    </li>
+    <li>
+      <strong>API Keys &amp; Webhooks Handover</strong>:
+      <ul>
+        <li>Provide the active <code>RAZORPAY_KEY_ID</code> and <code>RAZORPAY_KEY_SECRET</code> (in <em>Live</em> mode).</li>
+        <li>Verify the Webhook URL: <code>https://runclub-backend-navy.vercel.app/api/payments/webhook</code> with secret <code>RAZORPAY_WEBHOOK_SECRET</code>.</li>
+      </ul>
+    </li>
+  </ol>
+
+  <h2>2.5 Email &amp; Google Workspace Handover</h2>
+  <ol>
+    <li>
+      <strong>Email Account</strong>: Primary outgoing mail is sent via <code>burnandbond.club@gmail.com</code>.
+    </li>
+    <li>
+      <strong>Google App Password</strong>: If the Gmail password is changed, Google automatically revokes all active App Passwords.
+      The new owner must immediately visit <a href="https://myaccount.google.com/apppasswords">myaccount.google.com/apppasswords</a>, generate a new 16-character App Password, and save it to <code>SMTP_PASS</code> in Vercel.
+    </li>
+  </ol>
+</div>
+
+<!-- CHAPTER 3 -->
+<div id="ch3" class="chapter-break">
+  <h1>§3. Architecture, Hosting Topology &amp; Tech Stack</h1>
+  <p>
+    The platform is architected as two serverless services managed on Vercel, entirely eliminating server maintenance,
+    OS patching, and capacity provisioning.
+  </p>
+
+  <div class="diagram-box">
+┌────────────────────────────────────────────────────────────────────────┐
+│                        USER BROWSER / CLIENT                           │
+│              (Laptops, Mobile Chrome, iOS Safari, PWA)                 │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                         Requests to https://b2club.in
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                   VERCEL FRONTEND PROJECT: "runclub-frontend"          │
+│               - Domain: b2club.in / www.b2club.in                      │
+│               - Framework: React 19 + Vite 6 (Static SPA)              │
+│               - Cache-Control: s-maxage=0, no-store (instant deploys)  │
+└───────┬─────────────────────────────────────────────────┬──────────────┘
+        │                                                 │
+   SPA Page Navigations                             Reverse Proxy Rewrites
+ (Serves index.html fallback)                   (/api/*, /uploads/*, /health)
+                                                          │
+                                                          ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                    VERCEL BACKEND PROJECT: "runclub-backend"           │
+│               - Domain: runclub-backend-navy.vercel.app                │
+│               - Entrypoint: api/index.ts &rarr; Express 5                 │
+│               - Single unified Serverless Function                     │
+└───────┬──────────────────────┬──────────────────────────┬──────────────┘
+        │                      │                          │
+   Prisma ORM             Object Storage            External APIs
+        │                      │                          │
+        ▼                      ▼                          ▼
+┌──────────────────┐  ┌──────────────────┐  ┌────────────────────────────┐
+│ SUPABASE POSTGRES│  │ VERCEL BLOB /    │  │ • Razorpay (Payments/Webhooks)
+│ • Pooler (6543)  │  │ SUPABASE STORAGE │  │ • Gmail SMTP (Trans. Mails)
+│ • Direct (5432)  │  │ (Uploads bucket) │  │ • cron-job.org (Schedulers)
+└──────────────────┘  └──────────────────┘  └────────────────────────────┘
+  </div>
+
+  <h2>3.1 Why the Frontend Proxies the API (No CORS)</h2>
+  <p>
+    The frontend's <code>vercel.json</code> rewrites all requests matching <code>/api/:path*</code>, <code>/uploads/:path*</code>,
+    and <code>/health</code> directly to <code>https://runclub-backend-navy.vercel.app</code>.
+  </p>
+  <ul>
+    <li><strong>Zero Cross-Origin Hassle</strong>: Browsers communicate strictly with <code>b2club.in</code>. Cookies, authorization headers, and multipart form uploads behave as single-origin requests.</li>
+    <li><strong>Client SPA Fallback</strong>: <code>/(.*) &rarr; /index.html</code> ensures deep links like <code>/events/abc</code> or <code>/raceday/123</code> load cleanly on hard browser refresh without 404s.</li>
+    <li><strong>Backend Decoupling</strong>: If the backend URL ever changes, update only the 3 rewrite lines in <code>runclub-frontend/vercel.json</code>. No frontend code re-compilation is required.</li>
+  </ul>
+
+  <h2>3.2 Technical Stack Specifications</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Layer</th>
+        <th style="width: 45%;">Technologies &amp; Libraries</th>
+        <th style="width: 30%;">Version / Role</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Frontend Core</strong></td>
+        <td>React 19, TypeScript, Vite 6, Tailwind CSS 4</td>
+        <td>Modern, zero-latency reactive SPA.</td>
+      </tr>
+      <tr>
+        <td><strong>UI &amp; Animation</strong></td>
+        <td>Framer Motion, GSAP, three.js / react-three-fiber</td>
+        <td>Physics-based cards, tilt effects, 3D scenes.</td>
+      </tr>
+      <tr>
+        <td><strong>Barcode / QR</strong></td>
+        <td><code>jsqr</code> (camera barcode reader), <code>qrcode</code> (generation)</td>
+        <td>High-speed start-line participant check-in.</td>
+      </tr>
+      <tr>
+        <td><strong>Backend Runtime</strong></td>
+        <td>Node.js 20+, Express 5, TypeScript</td>
+        <td>Vercel Serverless Function engine.</td>
+      </tr>
+      <tr>
+        <td><strong>ORM &amp; Database</strong></td>
+        <td>Prisma 7, <code>@prisma/adapter-pg</code>, PostgreSQL (Supabase)</td>
+        <td>Connection pooled, type-safe queries.</td>
+      </tr>
+      <tr>
+        <td><strong>Authentication</strong></td>
+        <td>JWT (<code>jsonwebtoken</code>), bcrypt/crypto password hashing</td>
+        <td>Stateless bearer tokens, 24-hour expiration.</td>
+      </tr>
+      <tr>
+        <td><strong>Spreadsheets</strong></td>
+        <td>ExcelJS</td>
+        <td>Server-side real <code>.xlsx</code> roster generation.</td>
+      </tr>
+      <tr>
+        <td><strong>Payments</strong></td>
+        <td>Razorpay SDK (Node), Razorpay Checkout.js (Browser)</td>
+        <td>UPI, Cards, NetBanking, auto-reconciliation.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- CHAPTER 4 -->
+<div id="ch4" class="chapter-break">
+  <h1>§4. Environment Variables Reference (Exhaustive)</h1>
+  <p>
+    Configure these variables in <strong>Vercel &rarr; Project Settings &rarr; Environment Variables</strong>.
+    For local development, save them in <code>runclub-backend/.env</code>.
+  </p>
+
+  <h2>4.1 Backend Environment Variables</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 24%;">Variable Name</th>
+        <th style="width: 38%;">Purpose &amp; Description</th>
+        <th style="width: 38%;">Format / Critical Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>DATABASE_URL</code></td>
+        <td>Postgres connection URI for application queries.</td>
+        <td><strong>Must use Supabase Pooler (Port 6543)</strong> with <code>?pgbouncer=true</code>. Prevents exhausting database connection limits in serverless environments.</td>
+      </tr>
+      <tr>
+        <td><code>DIRECT_URL</code></td>
+        <td>Direct Postgres connection URI used exclusively for migrations.</td>
+        <td><strong>Must use Direct Port 5432</strong>. The pooler's transaction mode cannot execute prepared statements needed by <code>prisma migrate</code>.</td>
+      </tr>
+      <tr>
+        <td><code>JWT_SECRET</code></td>
+        <td>Cryptographic secret used to sign and verify user authentication tokens.</td>
+        <td>Must be a high-entropy string of at least 32 characters. Rotating this logs all active users out.</td>
+      </tr>
+      <tr>
+        <td><code>APP_URL</code></td>
+        <td>Public frontend URL used to format links in transactional emails.</td>
+        <td>Set to <code>https://b2club.in</code>. A missing or incorrect value generates broken links in verification and password reset emails.</td>
+      </tr>
+      <tr>
+        <td><code>RAZORPAY_KEY_ID</code></td>
+        <td>Publishable Merchant Key ID from Razorpay.</td>
+        <td>Format: <code>rzp_live_...</code> in production, <code>rzp_test_...</code> for local testing. Publicly exposed to client browser via <code>/api/payments/config</code>.</td>
+      </tr>
+      <tr>
+        <td><code>RAZORPAY_KEY_SECRET</code></td>
+        <td>Secret key used to verify payment signatures and issue refunds.</td>
+        <td>Private secret. Never expose to client bundles.</td>
+      </tr>
+      <tr>
+        <td><code>RAZORPAY_WEBHOOK_SECRET</code></td>
+        <td>Secret key used to verify HMAC-SHA256 signatures of incoming payment webhooks.</td>
+        <td>Must match the secret entered in the Razorpay Webhooks dashboard. If unset, webhooks fail with 503.</td>
+      </tr>
+      <tr>
+        <td><code>SMTP_HOST</code></td>
+        <td>Host for outgoing transactional email server.</td>
+        <td>Set to <code>smtp.gmail.com</code>.</td>
+      </tr>
+      <tr>
+        <td><code>SMTP_PORT</code></td>
+        <td>Port for SMTP server.</td>
+        <td>Set to <code>587</code> (STARTTLS) or <code>465</code> (SSL/TLS).</td>
+      </tr>
+      <tr>
+        <td><code>SMTP_USER</code></td>
+        <td>SMTP login email address.</td>
+        <td>Set to <code>burnandbond.club@gmail.com</code>.</td>
+      </tr>
+      <tr>
+        <td><code>SMTP_PASS</code></td>
+        <td>SMTP password.</td>
+        <td><strong>Must be a 16-character Google App Password</strong>, not the regular Gmail account password.</td>
+      </tr>
+      <tr>
+        <td><code>MAIL_FROM</code></td>
+        <td>Sender header on outgoing emails.</td>
+        <td>Format: <code>"B² Club" &lt;burnandbond.club@gmail.com&gt;</code>.</td>
+      </tr>
+      <tr>
+        <td><code>CRON_SECRET</code></td>
+        <td>Authorization token protecting background maintenance endpoints.</td>
+        <td>Protects <code>/api/cron/reminders</code> and <code>/api/cron/holds</code> from public invocation.</td>
+      </tr>
+      <tr>
+        <td><code>ADMIN_EMAIL</code></td>
+        <td>Email address for automated administrative account seeding.</td>
+        <td>Used by <code>dist/seed.js</code> on fresh database provisioning.</td>
+      </tr>
+      <tr>
+        <td><code>ADMIN_PASSWORD</code></td>
+        <td>Password for initial administrative account seeding.</td>
+        <td>Minimum 8 characters. Exits early if an admin already exists.</td>
+      </tr>
+      <tr>
+        <td><code>BLOB_READ_WRITE_TOKEN</code></td>
+        <td>Vercel Blob token for cloud photo storage.</td>
+        <td>Auto-injected by Vercel when attaching a Blob store to the backend project.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4.2 Frontend Environment Variables</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 28%;">Variable Name</th>
+        <th style="width: 32%;">Recommended Value</th>
+        <th style="width: 40%;">Reasoning</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>VITE_API_BASE_URL</code></td>
+        <td><em>(Leave completely empty)</em></td>
+        <td>Leaving empty instructs the frontend to call relative endpoints (e.g. <code>/api/...</code>), cleanly handled by Vercel rewrites without CORS.</td>
+      </tr>
+      <tr>
+        <td><code>VITE_RAZORPAY_KEY_ID</code></td>
+        <td><code>rzp_live_...</code> (Optional fallback)</td>
+        <td>Fallback only. The frontend dynamically fetches the active key ID from <code>GET /api/payments/config</code>.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- CHAPTER 5 -->
+<div id="ch5" class="chapter-break">
+  <h1>§5. Database Architecture &amp; Migration Engine</h1>
+  <p>
+    The persistent data layer is hosted on Supabase PostgreSQL and managed via Prisma ORM.
+  </p>
+
+  <h2>5.1 The Two-Port Rule: Connection Pooler vs. Direct Port</h2>
+  <div class="callout callout-danger">
+    <div class="callout-title">⚠️ Critical Database Connection Architecture</div>
+    Supabase exposes two connection ports. Conflating them will cause either application outages or migration crashes:
+    <ul>
+      <li><strong>Port 6543 (Pooler)</strong>: Used by <code>DATABASE_URL</code>. Employs PgBouncer in transaction mode to multiplex connections from serverless functions. <em>Cannot run prepared statements.</em></li>
+      <li><strong>Port 5432 (Direct)</strong>: Used by <code>DIRECT_URL</code>. Bypasses the pooler to establish a stateful session required by <code>prisma migrate</code>.</li>
+    </ul>
+  </div>
+
+  <h2>5.2 Core Data Models &amp; Relationships</h2>
+  <ul>
+    <li><code>User</code>: Stores authentication credentials, full name, role (<code>MEMBER</code>, <code>VOLUNTEER</code>, <code>ADMIN</code>), emergency contact, and mandatory normalized E.164 phone number.</li>
+    <li><code>Event</code>: Defines club sessions (e.g. <em>WEEK 27 - B2 TREKKING</em>), discipline, UTC timestamp, venue, capacity, kid pricing rules, party discount rules, spot hold duration, cover image, and GPX route path.</li>
+    <li><code>EventRegistration</code>: Represents one booking order. Tracks Razorpay order ID, payment status, pricing snapshots, <code>hold_expires_at</code> deadline, and cancellation timestamps.</li>
+    <li><code>RegistrationGuest</code>: <strong>One record per participant</strong>. Captures attendee name, classification (<code>ADULT</code> or <code>KID</code>), whether they are the primary booker, their own WhatsApp phone number, and physical race-morning admission timestamp (<code>admitted_at</code>).</li>
+    <li><code>Photo</code>: Community gallery images tagged to events, tracking uploader reference, caption, and object storage URL.</li>
+    <li><code>EventShift</code> / <code>ShiftAssignment</code>: Marshal and volunteer shift rosters for race day.</li>
+  </ul>
+
+  <h2>5.3 Registration Status State Machine</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 20%;">Stored Status</th>
+        <th style="width: 28%;">Public Display Label</th>
+        <th style="width: 20%;">Reserves Spot?</th>
+        <th style="width: 32%;">Ticket QR Accessible?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>PENDING</code></td>
+        <td>Awaiting Payment</td>
+        <td>Yes (until <code>hold_expires_at</code>)</td>
+        <td>No (must be completed first)</td>
+      </tr>
+      <tr>
+        <td><code>PAID</code></td>
+        <td>Paid</td>
+        <td>Yes</td>
+        <td><strong>Yes</strong> (active verifiable QR ticket)</td>
+      </tr>
+      <tr>
+        <td><code>FREE</code></td>
+        <td>Free (Volunteer Entry)</td>
+        <td>Yes</td>
+        <td><strong>Yes</strong> (active verifiable QR ticket)</td>
+      </tr>
+      <tr>
+        <td><code>EXPIRED</code></td>
+        <td>Spot Expired</td>
+        <td>No (released to public)</td>
+        <td>No</td>
+      </tr>
+      <tr>
+        <td><code>CANCELLED</code></td>
+        <td>Cancelled</td>
+        <td>No</td>
+        <td>No</td>
+      </tr>
+      <tr>
+        <td><code>DEACTIVATED</code></td>
+        <td>Deactivated (Admin action)</td>
+        <td>No</td>
+        <td>No</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>5.4 The Automated Pre-Migrate Reconciliation Script</h2>
+  <p>
+    Located at <code>runclub-backend/scripts/pre-migrate.mjs</code>, this script runs automatically before every
+    <code>npx prisma migrate deploy</code> in the Vercel build command:
+  </p>
+  <ul>
+    <li>Removes any lingering failed migrations (where <code>finished_at IS NULL</code>) preventing Prisma error <code>P3009</code>.</li>
+    <li>Normalizes migration prefixes to two-digit zero-padded folder conventions (e.g. <code>00_init</code>).</li>
+  </ul>
+</div>
+
+<!-- CHAPTER 6 -->
+<div id="ch6" class="chapter-break">
+  <h1>§6. Feature-by-Feature Implementation Guide</h1>
+
+  <h2>6.1 Party Bookings &amp; Phone Number Collection</h2>
+  <p>
+    A single member can register up to <strong>6 attendees</strong> in a single booking:
+  </p>
+  <ul>
+    <li><strong>Individual Mobile Numbers</strong>: For every guest in the party, their personal WhatsApp number is gathered so organizers can compile event coordination WhatsApp groups.</li>
+    <li><strong>"Use My Number" Flag</strong>: For children or spouses without a personal phone, a checkbox copies the booker's number. Resolved securely on the backend to prevent payload tampering.</li>
+    <li><strong>Emergency Contact Validation</strong>: The booker must supply a distinct emergency phone number. A safety validation rule rejects submissions where the emergency contact matches the runner's own phone.</li>
+  </ul>
+
+  <h2>6.2 The 24-Hour Spot Hold &amp; Read-Time Expiry Engine</h2>
+  <p>
+    When a runner begins booking an event with limited capacity, the system creates a <code>PENDING</code> registration
+    and computes a hold deadline (<code>hold_expires_at = NOW() + hold_minutes</code>, default 24 hours).
+  </p>
+  <div class="callout callout-success">
+    <div class="callout-title">💡 Read-Time Availability Filter (Zero Delay Release)</div>
+    Rather than waiting for a background cron job to mark expired bookings, <code>seatFilter()</code> in
+    <code>events.router.ts</code> evaluates hold expiration <strong>at read time</strong>. The moment an unpaid
+    reservation crosses its expiration timestamp, the capacity counter immediately releases the spot back
+    to other runners.
+  </div>
+
+  <h2>6.3 QR Ticketing &amp; Start-Line Check-In</h2>
+  <ul>
+    <li><strong>Party-Wide QR Code</strong>: One encrypted QR code covers the entire registration group.</li>
+    <li><strong>Camera-Based Scanner</strong>: Marshals open <code>/scan</code> on their mobile browsers, utilizing <code>jsqr</code> to scan tickets directly via device cameras.</li>
+    <li><strong>Person-by-Person Admission</strong>: Marshals can mark individual attendees in a family as checked-in as they arrive at the start line. Check-in actions can be undone if clicked in error.</li>
+  </ul>
+
+  <h2>6.4 Community Photo Gallery &amp; "Any Pixel Any Size" Optimizer</h2>
+  <p>
+    The community gallery at <code>/gallery</code> allows runners and organizers to submit photos from club sessions:
+  </p>
+  <ul>
+    <li><strong>Universal Permissions</strong>: Authenticated <code>MEMBER</code>, <code>VOLUNTEER</code>, and <code>ADMIN</code> accounts can post photos. Non-admins can delete only their own uploaded photos.</li>
+    <li><strong>Client-Side 2.5K Canvas Optimizer</strong>: Handled by <code>optimiseImageFile</code> in <code>Gallery.tsx</code>. Large camera files up to 25MB are scaled down in the browser to 2560px on their longest edge and compressed to ~500KB JPEG before upload. This guarantees uploads never hit Vercel's 4.5MB serverless payload limit.</li>
+    <li><strong>Adaptive Masonry &amp; Lightbox</strong>: Pure CSS columns and flexbox ensure ultra-wide landscape, tall portrait, and square photos render with their natural aspect ratio without cropping or stretching.</li>
+  </ul>
+
+  <h2>6.5 Server-Generated Excel Roster Exports (.xlsx)</h2>
+  <p>
+    The application exports native Excel workbooks via <code>ExcelJS</code> (no CSV format drift):
+  </p>
+  <ul>
+    <li><strong>Event Roster</strong>: One row per participant including attendee category, ticket status, payment reference, emergency contact, and questionnaire answers.</li>
+    <li><strong>All Rosters</strong>: Master export of all historical event entries.</li>
+    <li><strong>Member Directory</strong>: Complete runner database with attendance streaks and payment histories.</li>
+  </ul>
+</div>
+
+<!-- CHAPTER 7 -->
+<div id="ch7" class="chapter-break">
+  <h1>§7. API Reference Specification</h1>
+  <p>All endpoints are mounted under <code>/api</code>. Global health check is available at <code>GET /health</code>.</p>
+
+  <h2>7.1 Authentication Endpoints (<code>/api/auth</code>)</h2>
+  <table>
+    <thead>
+      <tr><th>Method</th><th>Endpoint</th><th>Access</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>POST</code></td><td><code>/register</code></td><td>Public</td><td>Registers a new member (validates E.164 phone, hashes password).</td></tr>
+      <tr><td><code>POST</code></td><td><code>/login</code></td><td>Public</td><td>Returns JWT session token (24h validity) and user profile.</td></tr>
+      <tr><td><code>POST</code></td><td><code>/forgot-password</code></td><td>Public</td><td>Issues cryptographic 45-minute password reset link via email.</td></tr>
+      <tr><td><code>POST</code></td><td><code>/reset-password</code></td><td>Public</td><td>Applies new password using valid single-use token.</td></tr>
+      <tr><td><code>GET</code></td><td><code>/me</code></td><td>Signed In</td><td>Returns current authoritative account profile and role from DB.</td></tr>
+      <tr><td><code>PATCH</code></td><td><code>/me</code></td><td>Signed In</td><td>Updates user name, emergency contact, or phone number.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>7.2 Event &amp; Booking Endpoints (<code>/api/events</code>)</h2>
+  <table>
+    <thead>
+      <tr><th>Method</th><th>Endpoint</th><th>Access</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>GET</code></td><td><code>/</code></td><td>Public</td><td>Lists upcoming and active published club events.</td></tr>
+      <tr><td><code>GET</code></td><td><code>/:id</code></td><td>Public</td><td>Returns event details, capacity counters, pricing, and questionnaire.</td></tr>
+      <tr><td><code>POST</code></td><td><code>/</code></td><td>ADMIN</td><td>Creates a new draft or published event.</td></tr>
+      <tr><td><code>PUT</code></td><td><code>/:id</code></td><td>ADMIN</td><td>Updates event settings, pricing, cover image, or reminders.</td></tr>
+      <tr><td><code>DELETE</code></td><td><code>/:id</code></td><td>ADMIN</td><td>Soft-deletes or removes an unpublished event.</td></tr>
+      <tr><td><code>POST</code></td><td><code>/:id/register</code></td><td>Verified Member</td><td>Creates registration, initiates 24h hold, and creates Razorpay order.</td></tr>
+      <tr><td><code>GET</code></td><td><code>/me/registrations</code></td><td>Signed In</td><td>Returns booking history and QR tickets for current user.</td></tr>
+      <tr><td><code>GET</code></td><td><code>/registration/:id/ticket</code></td><td>Owner / ADMIN</td><td>Renders standalone printable/scannable HTML QR ticket.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>7.3 Payment &amp; Reconciliation Endpoints (<code>/api/payments</code>)</h2>
+  <table>
+    <thead>
+      <tr><th>Method</th><th>Endpoint</th><th>Access</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>GET</code></td><td><code>/config</code></td><td>Public</td><td>Provides publishable Razorpay Key ID and mock-mode status.</td></tr>
+      <tr><td><code>POST</code></td><td><code>/verify</code></td><td>Signed In</td><td>Verifies browser payment signature and transitions registration to PAID.</td></tr>
+      <tr><td><code>POST</code></td><td><code>/webhook</code></td><td>Razorpay</td><td>Signature-verified webhook capturing <code>payment.captured</code> events.</td></tr>
+      <tr><td><code>POST</code></td><td><code>/reconcile/:id</code></td><td>Owner / ADMIN</td><td>Queries Razorpay API directly to settle an unconfirmed booking.</td></tr>
+      <tr><td><code>POST</code></td><td><code>/refund/:id</code></td><td>ADMIN</td><td>Issues automated refund through Razorpay bounded by amount paid.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>7.4 Gallery &amp; Content Endpoints (<code>/api/content</code>)</h2>
+  <table>
+    <thead>
+      <tr><th>Method</th><th>Endpoint</th><th>Access</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>GET</code></td><td><code>/gallery</code></td><td>Public</td><td>Fetches community photos (optionally filtered by <code>?event_id=</code>).</td></tr>
+      <tr><td><code>POST</code></td><td><code>/gallery</code></td><td>Member / Admin</td><td>Uploads a photo (multipart/form-data) with caption and event tag.</td></tr>
+      <tr><td><code>DELETE</code></td><td><code>/gallery/:id</code></td><td>Member / Admin</td><td>Removes photo (admins can delete any; members delete own).</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- CHAPTER 8 -->
+<div id="ch8" class="chapter-break">
+  <h1>§8. Scheduled Jobs, Background Sweeps &amp; Webhooks</h1>
+
+  <h2>8.1 The Two Automated Sweeps</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Endpoint</th>
+        <th style="width: 25%;">Frequency</th>
+        <th style="width: 50%;">Operational Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>/api/cron/reminders</code></td>
+        <td>Daily (01:30 UTC / 07:00 IST)</td>
+        <td>Scans upcoming events and dispatches scheduled email reminders based on configured hour offsets (e.g. 24h, 48h before start). Uses a 6-hour grace window to prevent stale sends.</td>
+      </tr>
+      <tr>
+        <td><code>/api/cron/holds</code></td>
+        <td>Daily (02:00 UTC / 07:30 IST)</td>
+        <td>Audits unpaid <code>PENDING</code> bookings past their <code>hold_expires_at</code> timestamp. Updates database rows to <code>EXPIRED</code> and dispatches friendly reminder nudges.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>8.2 The Vercel Hobby Plan Limitation &amp; External Scheduler Fix</h2>
+  <div class="callout callout-warning">
+    <div class="callout-title">⚠️ Vercel Hobby Cron Limitation</div>
+    Vercel Hobby accounts permit cron jobs to run <strong>only once per day</strong>. If you configure a "2 hours before start" event reminder, a once-daily cron may miss it.
+  </div>
+  <p>
+    <strong>The Production Solution</strong>: Set up a free external cron monitor (such as <a href="https://cron-job.org">cron-job.org</a> or <a href="https://uptimerobot.com">UptimeRobot</a>) to ping both endpoints every 10–15 minutes:
+  </p>
+  <pre><code>https://runclub-backend-navy.vercel.app/api/cron/reminders?key=YOUR_CRON_SECRET
+https://runclub-backend-navy.vercel.app/api/cron/holds?key=YOUR_CRON_SECRET</code></pre>
+</div>
+
+<!-- CHAPTER 9 -->
+<div id="ch9" class="chapter-break">
+  <h1>§9. Payment Processing &amp; Mobile App Eviction Recovery</h1>
+
+  <h2>9.1 The Mobile Browser Tab Eviction Problem</h2>
+  <p>
+    In India, over 80% of runners pay via mobile UPI apps (Google Pay, PhonePe, Paytm). During checkout,
+    the mobile browser transfers focus to the UPI app. On budget or memory-constrained mobile devices,
+    the Android OS frequently kills the background browser tab to free RAM.
+  </p>
+  <p>
+    When the user completes payment in GPay and returns, the browser reloads from scratch.
+    The client-side callback never runs, leaving the booking stuck in <code>PENDING</code> even though money
+    was deducted from the runner's bank account.
+  </p>
+
+  <h2>9.2 The Dual Defense Architecture</h2>
+  <ol>
+    <li>
+      <strong>Razorpay Server-to-Server Webhook</strong>:
+      Razorpay notifies <code>POST /api/payments/webhook</code> directly from server to server.
+      The endpoint verifies the signature using <code>RAZORPAY_WEBHOOK_SECRET</code> and marks the booking <code>PAID</code>
+      regardless of what happened to the user's browser tab.
+    </li>
+    <li>
+      <strong>Pre-Payment Reconcile Check</strong>:
+      If a runner returns to the site and clicks "Pay Now" on a stuck booking, the application calls
+      <code>POST /api/payments/reconcile/:id</code> <em>before</em> initiating a new Razorpay checkout.
+      The server queries the Razorpay API, detects the existing capture, settles the ticket, and immediately
+      displays the QR code without charging the runner a second time.
+    </li>
+  </ol>
+</div>
+
+<!-- CHAPTER 10 -->
+<div id="ch10" class="chapter-break">
+  <h1>§10. Media Pipeline &amp; "Any Pixel Any Size" Optimizer</h1>
+  <p>
+    The photo upload system is designed to handle photography directly from modern high-end smartphones
+    without crashing serverless functions or distorting the layout.
+  </p>
+
+  <h2>10.1 The Vercel 4.5MB Serverless Ceiling</h2>
+  <p>
+    Vercel serverless functions enforce a strict incoming request body size limit of <strong>4.5 MB</strong>.
+    Photos taken directly with modern iPhone or Android cameras (12MP, 48MP, 108MP) typically range from
+    <strong>5 MB to 20 MB</strong>. Posting these files directly to the serverless backend causes Vercel's
+    edge proxy to terminate the connection with HTTP <code>413 Payload Too Large</code> or <code>403 Forbidden</code>.
+  </p>
+
+  <h2>10.2 The Solution: Client-Side 2.5K Canvas Resizing</h2>
+  <p>
+    Implemented in <code>runclub-frontend/src/pages/Gallery.tsx</code> via <code>optimiseImageFile()</code>:
+  </p>
+  <ul>
+    <li>The file input accepts raw image files up to <strong>25 MB</strong> (JPEG, PNG, WebP, GIF, AVIF).</li>
+    <li>Before dispatching the network request, the image is loaded into an HTML5 <code>&lt;canvas&gt;</code> element.</li>
+    <li>If either dimension exceeds <strong>2560px</strong> (2.5K resolution), the longest edge is scaled to 2560px with aspect ratio strictly preserved.</li>
+    <li>The canvas exports a compressed JPEG at <code>0.88</code> quality, reducing the file size to <strong>~400 KB &ndash; 800 KB</strong> with zero visible quality loss.</li>
+    <li>The upload completes in under 1 second, completely bypassing Vercel payload restrictions.</li>
+  </ul>
+</div>
+
+<!-- CHAPTER 11 -->
+<div id="ch11" class="chapter-break">
+  <h1>§11. Zero-to-Live Production Hosting Guide</h1>
+  <p>Follow these steps to deploy a completely fresh instance of B² Club from scratch on new hosting accounts.</p>
+
+  <h2>Step 1: Set Up Supabase Database &amp; Storage</h2>
+  <ol>
+    <li>Create a new project on <a href="https://supabase.com">supabase.com</a> in the Mumbai region (<code>ap-south-1</code>).</li>
+    <li>Navigate to <code>Project Settings &rarr; Database</code>:
+      <ul>
+        <li>Copy the <strong>Transaction Pooler URI</strong> (Port <code>6543</code>) &rarr; save as <code>DATABASE_URL</code>.</li>
+        <li>Copy the <strong>Direct Connection URI</strong> (Port <code>5432</code>) &rarr; save as <code>DIRECT_URL</code>.</li>
+      </ul>
+    </li>
+    <li>Navigate to <code>Storage</code> &rarr; Create a new bucket named <code>uploads</code> &rarr; Toggle <strong>Public Bucket</strong> to ON.</li>
+  </ol>
+
+  <h2>Step 2: Deploy Backend to Vercel</h2>
+  <ol>
+    <li>In Vercel, import the GitHub repository <code>b2runclub</code>.</li>
+    <li>Set <strong>Project Name</strong>: <code>runclub-backend</code>.</li>
+    <li>Set <strong>Root Directory</strong>: <code>runclub-backend</code>.</li>
+    <li>Set <strong>Build Command</strong>:
+      <pre><code>npm run build && node scripts/pre-migrate.mjs && npx prisma migrate deploy && node dist/seed.js</code></pre>
+    </li>
+    <li>Add all environment variables listed in §4 (Database URIs, JWT Secret, Razorpay keys, Gmail SMTP credentials, Admin Seed).</li>
+    <li>Click <strong>Deploy</strong>. Copy the assigned backend URL (e.g. <code>https://runclub-backend-navy.vercel.app</code>).</li>
+  </ol>
+
+  <h2>Step 3: Deploy Frontend to Vercel</h2>
+  <ol>
+    <li>In Vercel, import the same GitHub repository a second time.</li>
+    <li>Set <strong>Project Name</strong>: <code>runclub-frontend</code>.</li>
+    <li>Set <strong>Root Directory</strong>: <code>runclub-frontend</code>.</li>
+    <li>Framework Preset: <code>Vite</code>. Build Command: <code>npm run build</code>. Output Directory: <code>dist</code>.</li>
+    <li>Verify that <code>runclub-frontend/vercel.json</code> rewrites point to your active backend URL from Step 2:
+      <pre><code>"rewrites": [
+  { "source": "/api/:path*", "destination": "https://YOUR-BACKEND.vercel.app/api/:path*" },
+  { "source": "/uploads/:path*", "destination": "https://YOUR-BACKEND.vercel.app/uploads/:path*" },
+  { "source": "/health", "destination": "https://YOUR-BACKEND.vercel.app/health" },
+  { "source": "/(.*)", "destination": "/index.html" }
+]</code></pre>
+    </li>
+    <li>Click <strong>Deploy</strong>.</li>
+  </ol>
+
+  <h2>Step 4: Attach Custom Domains &amp; DNS Records</h2>
+  <ol>
+    <li>In the Frontend Vercel Project &rarr; <code>Settings &rarr; Domains</code>: Add <code>b2club.in</code> and <code>www.b2club.in</code>.</li>
+    <li>In your DNS provider (e.g. Hostinger / GoDaddy):
+      <ul>
+        <li><code>A Record</code>: <code>@</code> &rarr; <code>76.76.21.21</code></li>
+        <li><code>CNAME Record</code>: <code>www</code> &rarr; <code>cname.vercel-dns.com</code></li>
+      </ul>
+    </li>
+    <li>Vercel automatically provisions and renews SSL/TLS certificates via Let's Encrypt.</li>
+  </ol>
+
+  <h2>Step 5: Post-Deployment Smoke Test</h2>
+  <ul class="checklist">
+    <li>Visit <code>https://b2club.in/health</code> &rarr; confirms <code>{"status":"healthy","database":"connected"}</code>.</li>
+    <li>Visit <code>https://b2club.in/api/payments/config</code> &rarr; verifies active Razorpay Key ID and mock mode false.</li>
+    <li>Log in using seeded <code>ADMIN_EMAIL</code> and <code>ADMIN_PASSWORD</code>.</li>
+    <li>Visit <code>/admin/mailer</code> &rarr; verify that SMTP shows connected with zero send errors.</li>
+    <li>Upload a photo in <code>/gallery</code> &rarr; confirm that client-side 2.5K image optimization fits and publishes cleanly.</li>
+  </ul>
+</div>
+
+<!-- CHAPTER 12 -->
+<div id="ch12" class="chapter-break">
+  <h1>§12. Local Development Setup &amp; Testing</h1>
+
+  <h2>12.1 Running Locally with SQLite</h2>
+  <p>
+    To ensure developers can work offline without paying for or configuring cloud Postgres instances,
+    the codebase features an automated SQLite derivation engine:
+  </p>
+  <pre><code># 1. Clone repository
+git clone https://github.com/Nigazhvan-31/b2runclub.git
+cd b2runclub
+
+# 2. Start Backend (http://localhost:3000)
+cd runclub-backend
+npm install
+npm run dev
+
+# 3. Start Frontend in a second terminal (http://localhost:5173)
+cd ../runclub-frontend
+npm install
+npm run dev</code></pre>
+
+  <div class="callout callout-warning">
+    <div class="callout-title">⚠️ The Prisma Local Generation Rule</div>
+    Running <code>npm run build</code> or <code>npx prisma generate</code> builds the client for production PostgreSQL.
+    If you switch back to local SQLite development, run:
+    <pre><code>npm run generate:local</code></pre>
+    This executes <code>scripts/local-schema.mjs</code>, deriving a SQLite-compatible Prisma client for <code>dev.db</code>.
+  </div>
+
+  <h2>12.2 Automated API Test Suite</h2>
+  <p>
+    The repository includes an extensive end-to-end API regression test suite at <code>runclub-backend/scripts/api-test-suite.mjs</code>,
+    executing 90 automated assertions covering registrations, holds, spot expirations, pricing rules, and role permissions:
+  </p>
+  <pre><code>cd runclub-backend
+node scripts/api-test-suite.mjs</code></pre>
+</div>
+
+<!-- CHAPTER 13 -->
+<div id="ch13" class="chapter-break">
+  <h1>§13. Emergency Runbook &amp; Troubleshooting Guide</h1>
+
+  <h2>13.1 Problem: Gallery Photo Upload Fails with 403 Forbidden</h2>
+  <ul>
+    <li><strong>Cause</strong>: Previous versions restricted photo uploads to Admins only, or the user's JWT carried a stale role.</li>
+    <li><strong>Resolution</strong>: In the latest build (commit <code>c42b479</code>), <code>POST /api/content/gallery</code> is open to all signed-in members (<code>MEMBER</code>, <code>VOLUNTEER</code>, <code>ADMIN</code>), and <code>requireRole</code> automatically revalidates against the live database if a token role is out of sync. Ensure users are logged into an active account before uploading.</li>
+  </ul>
+
+  <h2>13.2 Problem: Transactional Emails Stop Sending (Gmail SMTP 535)</h2>
+  <ul>
+    <li><strong>Cause</strong>: The Google account password was changed, which automatically invalidates all existing Google App Passwords.</li>
+    <li><strong>Resolution</strong>: Log into <code>burnandbond.club@gmail.com</code>, visit <a href="https://myaccount.google.com/apppasswords">myaccount.google.com/apppasswords</a>, generate a fresh 16-character App Password, update <code>SMTP_PASS</code> in Vercel backend environment variables, and redeploy.</li>
+  </ul>
+
+  <h2>13.3 Problem: Runner Paid Money via UPI but Ticket Stays "Awaiting Payment"</h2>
+  <ul>
+    <li><strong>Cause</strong>: Mobile browser tab eviction killed the frontend payment callback before it finished.</li>
+    <li><strong>Resolution</strong>:
+      <ol>
+        <li>Advise runner to click "Pay Now" on their profile &rarr; the system runs <code>reconcile</code> and instantly releases the ticket without charging again.</li>
+        <li>Or log into Admin Console &rarr; Manage Event Roster &rarr; Click <strong>Reconcile Payments</strong> to auto-settle all pending orders against Razorpay.</li>
+      </ol>
+    </li>
+  </ul>
+
+  <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #1e2433; text-align: center; color: #64748b; font-size: 11.5px;">
+    B² Club Platform Engineering Manual &bull; Compiled for B² Club, Madurai &bull; Generated October 2026
+  </div>
+</div>
+
+</body>
+</html>
+"""
+
+with open(OUTPUT_HTML, "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+print(f"HTML written to {OUTPUT_HTML} ({len(html_content)} bytes)")
+
+chrome_path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+cmd = [
+    chrome_path,
+    "--headless",
+    "--disable-gpu",
+    "--no-pdf-header-footer",
+    f"--print-to-pdf={OUTPUT_PDF}",
+    OUTPUT_HTML
+]
+
+print("Executing Chrome headless print-to-pdf...")
+res = subprocess.run(cmd, capture_output=True, text=True)
+if os.path.exists(OUTPUT_PDF) and os.path.getsize(OUTPUT_PDF) > 0:
+    print(f"Success! PDF generated at: {OUTPUT_PDF} ({os.path.getsize(OUTPUT_PDF)} bytes)")
+else:
+    print("Error generating PDF:", res.stderr)
+    sys.exit(1)
