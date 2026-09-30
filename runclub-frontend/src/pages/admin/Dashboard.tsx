@@ -203,31 +203,55 @@ export function AdminDashboard() {
         description="Money in, registrations by state, and how the club is voting."
         action={
           <div className="flex flex-wrap gap-2">
-            <Link to="/scan" className={buttonClass("gold", "md")}>
-              Scan tickets
-            </Link>
-            <Button variant="outline" loading={exporting} onClick={exportAll}>
-              <DownloadIcon className="size-3.5" />
-              Export all rosters
-            </Button>
-            <Link to="/admin/members" className={buttonClass("ghost", "md")}>
+            <Link to="/admin/members" className={buttonClass("outline", "sm")}>
               Members
             </Link>
-            <Link to="/admin/events" className={buttonClass("ghost", "md")}>
+            <Link to="/admin/events" className={buttonClass("outline", "sm")}>
               Events
             </Link>
-            <Link to="/admin/polls" className={buttonClass("ghost", "md")}>
+            <Link to="/admin/polls" className={buttonClass("ghost", "sm")}>
               Polls
             </Link>
-            <Link to="/admin/collaborators" className={buttonClass("ghost", "md")}>
+            <Link to="/admin/collaborators" className={buttonClass("ghost", "sm")}>
               Collaborators
             </Link>
-            <Link to="/admin/founders" className={buttonClass("ghost", "md")}>
+            <Link to="/admin/founders" className={buttonClass("ghost", "sm")}>
               Founders
             </Link>
           </div>
         }
       />
+
+      {/* Organiser Operations Box */}
+      <Card className="mb-6 border-gold/30 bg-gold/[0.04] p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="eyebrow flex items-center gap-2 text-gold">
+              <span className="size-2 rounded-full bg-gold animate-pulse" />
+              Organiser Operations Box
+            </p>
+            <h3 className="display mt-1 text-[18px] sm:text-[20px] text-ink">
+              Start-Line Check-in & Event Operations
+            </h3>
+            <p className="mt-1 text-[13px] leading-relaxed text-ink-2 max-w-2xl">
+              Scan participant QR tickets at the gate with your camera, admit runners, export rosters for race marshals, or manage club sessions.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <Link to="/scan" className={buttonClass("gold", "md")}>
+              Scan tickets
+            </Link>
+            <Button variant="outline" size="md" loading={exporting} onClick={exportAll}>
+              <DownloadIcon className="size-3.5" />
+              Export rosters
+            </Button>
+            <Link to="/admin/events" className={buttonClass("outline", "md")}>
+              Manage events
+            </Link>
+          </div>
+        </div>
+      </Card>
 
       {loading ? (
         <div className="grid gap-5 lg:grid-cols-3">

@@ -636,46 +636,77 @@ export function EventDetail() {
       */}
       {createPortal(
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-void/95 backdrop-blur-md lg:hidden">
-        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
-          <div className="min-w-0">
-            <p className="eyebrow">Entry</p>
-            {comped && event.price > 0 ? (
-              <p className="flex items-baseline gap-1.5">
-                <span className="text-[12px] text-ink-3 line-through">{inr(event.price)}</span>
-                <span className="display text-[20px] text-[color:var(--color-free)]">Free</span>
-              </p>
+          <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
+            {isAdmin ? (
+              <div className="flex w-full items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="eyebrow text-gold">Organiser</p>
+                  <p className="text-[13px] font-semibold text-ink truncate">
+                    {event.taken != null ? `${event.taken} booked` : "Open"} {event.capacity ? `/ ${event.capacity}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link
+                    to={`/scan?event=${event.id}`}
+                    className={buttonClass("gold", "sm")}
+                  >
+                    Scan tickets
+                  </Link>
+                  <a
+                    href="#roster"
+                    className={buttonClass("outline", "sm")}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      document.getElementById("roster")?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                  >
+                    Roster
+                  </a>
+                </div>
+              </div>
             ) : (
-              <p className="display text-[20px] leading-tight">
-                {event.price === 0 ? "Free" : inr(event.price)}
-              </p>
-            )}
-          </div>
+              <>
+                <div className="min-w-0">
+                  <p className="eyebrow">Entry</p>
+                  {comped && event.price > 0 ? (
+                    <p className="flex items-baseline gap-1.5">
+                      <span className="text-[12px] text-ink-3 line-through">{inr(event.price)}</span>
+                      <span className="display text-[20px] text-[color:var(--color-free)]">Free</span>
+                    </p>
+                  ) : (
+                    <p className="display text-[20px] leading-tight">
+                      {event.price === 0 ? "Free" : inr(event.price)}
+                    </p>
+                  )}
+                </div>
 
-          <div className="ml-auto min-w-0">
-            {primary.act === "register" ? (
-              <Button onClick={() => setDialogOpen(true)}>{primary.label}</Button>
-            ) : primary.act === "ticket" ? (
-              <Button onClick={() => setTicketOpen(true)}>{primary.label}</Button>
-            ) : primary.act === "track" ? (
-              <Link to="/tickets" className={buttonClass("outline", "md")}>
-                {primary.label}
-              </Link>
-            ) : primary.act === "signin" ? (
-              <Link
-                to="/login"
-                state={{ from: `/events/${event.id}` }}
-                className={buttonClass("gold", "md")}
-              >
-                {primary.label}
-              </Link>
-            ) : (
-              <span className="block truncate rounded-xl border border-white/10 px-4 py-2.5 text-[13px] text-ink-3">
-                {primary.label}
-              </span>
+                <div className="ml-auto min-w-0">
+                  {primary.act === "register" ? (
+                    <Button onClick={() => setDialogOpen(true)}>{primary.label}</Button>
+                  ) : primary.act === "ticket" ? (
+                    <Button onClick={() => setTicketOpen(true)}>{primary.label}</Button>
+                  ) : primary.act === "track" ? (
+                    <Link to="/tickets" className={buttonClass("outline", "md")}>
+                      {primary.label}
+                    </Link>
+                  ) : primary.act === "signin" ? (
+                    <Link
+                      to="/login"
+                      state={{ from: `/events/${event.id}` }}
+                      className={buttonClass("gold", "md")}
+                    >
+                      {primary.label}
+                    </Link>
+                  ) : (
+                    <span className="block truncate rounded-xl border border-white/10 px-4 py-2.5 text-[13px] text-ink-3">
+                      {primary.label}
+                    </span>
+                  )}
+                </div>
+              </>
             )}
           </div>
-        </div>
-      </div>,
+        </div>,
         document.body,
       )}
 

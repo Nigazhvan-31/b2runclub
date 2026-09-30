@@ -497,7 +497,21 @@ export function Landing() {
       <ClubFeatures />
 
       {/* ── How it works — scroll-driven sticky section ───── */}
-      <div ref={stickyRef} style={{ height: "300vh" }} className="relative">
+      {/* ── How it works — Mobile: Natural clean grid, no trapped scroll or bottom clipping ───── */}
+      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 md:hidden">
+        <p className="eyebrow mb-2 text-gold">How it works</p>
+        <h2 className="display text-[clamp(26px,5vw,36px)] leading-tight text-ink">
+          Four steps from curious to running.
+        </h2>
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          {HOW_STEPS.map((step) => (
+            <HowStepCard key={step.n} step={step} />
+          ))}
+        </div>
+      </section>
+
+      {/* ── How it works — Desktop & Laptop (md+): Smooth scroll-driven 3D parallax choreography ───── */}
+      <div ref={stickyRef} style={{ height: "300vh" }} className="relative hidden md:block">
         <div className="sticky top-0 min-h-screen overflow-visible">
           <div className="flex min-h-screen flex-col justify-start px-4 pb-[clamp(160px,18vw,240px)] pt-16 sm:px-6 lg:px-8">
             <div className="mx-auto w-full max-w-7xl">
@@ -566,12 +580,12 @@ export function Landing() {
         </div>
       </div>
 
-      {/* ── Where you fit ─────────────────────────────────── */}
+      {/* ── How you join ─────────────────────────────────── */}
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <Reveal>
           <div className="datastrip mb-10" />
-          <p className="eyebrow mb-2 text-gold">Where you fit</p>
-          <h2 className="display text-[clamp(26px,3.6vw,38px)]">Three ways to be here.</h2>
+          <p className="eyebrow mb-2 text-gold">How you join</p>
+          <h2 className="display text-[clamp(26px,3.6vw,38px)]">Two ways to join.</h2>
         </Reveal>
 
         <div className="mt-10 grid gap-8 lg:grid-cols-2 lg:items-center">

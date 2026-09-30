@@ -548,7 +548,7 @@ export function Navbar() {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            className="pointer-events-auto overflow-hidden border-b border-white/8 bg-void/95 backdrop-blur-xl lg:hidden"
+            className="pointer-events-auto max-h-[calc(100vh-4rem)] overflow-y-auto overscroll-contain border-b border-white/8 bg-void/95 backdrop-blur-xl lg:hidden"
           >
             <div className="space-y-0.5 px-4 py-3">
               {/* Same active test as the desktop nav, so the two never disagree. */}

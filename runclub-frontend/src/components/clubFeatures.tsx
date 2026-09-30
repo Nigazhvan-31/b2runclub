@@ -86,7 +86,7 @@ const FEATURES: Feature[] = [
 ];
 
 export function ClubFeatures() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const reduced = useReducedMotion();
 
   return (
@@ -115,8 +115,9 @@ export function ClubFeatures() {
 
       <div className="mt-9 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {FEATURES.map((f, i) => {
-          // A locked tile still gets a destination — signup, not a dead end.
-          const to = f.members && !user ? "/signup" : f.to;
+          // Organisers go to ticket scanner; locked visitor tiles go to signup
+          const to =
+            f.to === "/tickets" && isAdmin ? "/scan" : f.members && !user ? "/signup" : f.to;
           return (
             <motion.div
               key={f.label}

@@ -39,7 +39,7 @@ type Filter = "upcoming" | "past" | "all";
 export function MyTickets() {
   const load = useCallback(() => api.myRegistrations(), []);
   const { data, loading, error, reload, setData } = useFetch(load);
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const toast = useToast();
 
   const [params, setParams] = useSearchParams();
@@ -50,6 +50,52 @@ export function MyTickets() {
   /** Tells us whether to open Checkout or offer the dev simulation. */
   const loadCfg = useCallback(() => api.paymentConfig(), []);
   const { data: payCfg } = useFetch(loadCfg);
+
+  if (isAdmin) {
+    return (
+      <Page>
+        <PageScene variant="shards" opacity={0.26} />
+        <PageHeader
+          eyebrow="Organiser Operations"
+          title="Start-Line Ticket Scanner"
+          description="You are signed in with an administrator account. Organisers scan runner tickets at the start line rather than carrying personal runner tickets."
+          action={
+            <Link to="/scan" className={buttonClass("gold", "md")}>
+              Open Ticket Scanner
+            </Link>
+          }
+        />
+
+        <Card className="border-gold/30 bg-gold/[0.04] p-6 sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
+            <span
+              className="grid size-12 shrink-0 place-items-center rounded-2xl bg-gold/15 text-2xl"
+              aria-hidden
+            >
+              🎟️
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-[17px] font-semibold text-ink">Organiser Operations & Check-in</h3>
+              <p className="mt-1.5 text-[14px] leading-relaxed text-ink-2">
+                As an organiser, your role is to admit runners and manage event rosters. Use the Start-Line QR Scanner to scan tickets at the gate, or view the complete participant roster.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link to="/scan" className={buttonClass("gold", "md")}>
+                  Open Start-Line Ticket Scanner
+                </Link>
+                <Link to="/admin/events" className={buttonClass("outline", "md")}>
+                  View Event Rosters
+                </Link>
+                <Link to="/admin" className={buttonClass("ghost", "md")}>
+                  Admin Dashboard
+                </Link>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </Page>
+    );
+  }
 
   const regs = data ?? [];
 
