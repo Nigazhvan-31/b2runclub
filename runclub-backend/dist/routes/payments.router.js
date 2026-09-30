@@ -614,7 +614,8 @@ router.get("/config", async (_req, res) => {
     res.json({
         mock_mode: isMockMode,
         // Publishable key only — never the secret.
-        key_id: isMockMode ? null : secrets_1.RAZORPAY_KEY_ID,
+        key_id: secrets_1.RAZORPAY_KEY_ID ?? null,
+        has_secret: Boolean(secrets_1.RAZORPAY_KEY_SECRET),
         simulation_available: isMockMode,
     });
 });

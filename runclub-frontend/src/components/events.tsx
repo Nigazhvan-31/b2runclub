@@ -398,23 +398,13 @@ export function RegisterDialog({
 
       const orderId = res.registration.razorpay_order_id;
 
-      // No real credentials on the backend: the order id is a mock that
-      // Checkout would reject, so auto-settle the registration in demo/mock mode.
+      // When Razorpay credentials are not yet configured on the backend,
+      // hold the spot at PENDING rather than falsely marking it paid.
       if (!orderId || isMockPayment(res.razorpay_key_id, orderId)) {
-        setStage("verifying");
-        try {
-          const verified = await api.simulatePayment(res.registration.id);
-          cheer();
-          toast("Registration confirmed — your QR ticket is ready!", "ok");
-          onDone(verified.registration);
-          onClose();
-          return;
-        } catch {
-          toast("Spot held — card payments are in mock mode.", "info");
-          onDone(res.registration);
-          onClose();
-          return;
-        }
+        toast("Spot held (Awaiting payment) — Razorpay gateway must be configured to process transactions.", "info");
+        onDone(res.registration);
+        onClose();
+        return;
       }
 
       setStage("paying");
