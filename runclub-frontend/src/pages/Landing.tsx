@@ -20,7 +20,7 @@ import {
 import { AnimatedNumber, Reveal } from "../components/motion";
 import { PillarCard } from "../components/PillarCard";
 import { Tilt, TiltLayer } from "../components/tilt";
-import { buttonClass, Card, Skeleton } from "../components/ui";
+import { buttonClass, Card } from "../components/ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { countdown, eventTime, fullDate, inr, isPast } from "../lib/format";
@@ -131,7 +131,7 @@ export function Landing() {
   const { user, isAdmin } = useAuth();
 
   const load = useCallback(() => api.events(), []);
-  const { data: events, loading } = useFetch(load);
+  const { data: events } = useFetch(load);
 
   const loadGallery = useCallback(() => api.gallery(), []);
   const { data: gallery } = useFetch(loadGallery);
@@ -353,15 +353,9 @@ export function Landing() {
           </Link>
         </div>
 
-        {/* Next event spotlight */}
-        <div ref={heroSpotlightRef} className="mt-14">
-          {loading ? (
-            <Card className="p-6">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="mt-4 h-10 w-2/3" />
-              <Skeleton className="mt-3 h-4 w-1/3" />
-            </Card>
-          ) : next ? (
+        {/* Next event spotlight — only render when an upcoming event is published */}
+        {next && (
+          <div ref={heroSpotlightRef} className="mt-14">
             <Tilt max={4} lift={5} glare={false}>
               <Card className="speedlines relative overflow-hidden">
                 <div
@@ -418,14 +412,8 @@ export function Landing() {
                 </div>
               </Card>
             </Tilt>
-          ) : (
-            <Card className="p-8 text-center">
-              <p className="text-sm text-ink-2">
-                No published events right now — the organisers are drafting the next block.
-              </p>
-            </Card>
-          )}
-        </div>
+          </div>
+        )}
       </section>
 
       {/* ── Pillars ──────────────────────────────────────── */}
