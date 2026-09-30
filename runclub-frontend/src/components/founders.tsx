@@ -116,7 +116,7 @@ export function Founders() {
                 is no hover — on a laptop it would latch the card open and stop
                 hover working. */}
             <div
-              className="flip h-[clamp(320px,46vw,400px)] w-full"
+              className="flip aspect-[3/4] min-h-[380px] sm:min-h-[440px] max-h-[520px] w-full"
               data-hoverflip="true"
               data-stretch="true"
               data-flipped={!canHover && flipped === f.id}
@@ -145,7 +145,7 @@ export function Founders() {
                         alt={f.name}
                         loading="lazy"
                         decoding="async"
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-cover object-[center_top]"
                         onError={() => setImgErrors((prev) => ({ ...prev, [f.id]: true }))}
                       />
                     ) : (
@@ -159,16 +159,16 @@ export function Founders() {
                     {/* Name over the foot of the portrait. */}
                     <span
                       aria-hidden
-                      className="pointer-events-none absolute inset-x-0 bottom-0 h-32"
+                      className="pointer-events-none absolute inset-x-0 bottom-0 h-24"
                       style={{
                         background:
-                          "linear-gradient(to top, rgba(8,9,11,0.96) 12%, rgba(8,9,11,0.6) 55%, transparent 100%)",
+                          "linear-gradient(to top, rgba(8,9,11,0.95) 0%, rgba(8,9,11,0.5) 60%, transparent 100%)",
                       }}
                     />
-                    <div className="absolute inset-x-0 bottom-0 p-5">
-                      <p className="text-[18px] font-semibold leading-snug text-ink">{f.name}</p>
+                    <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
+                      <p className="text-[17px] sm:text-[18px] font-semibold leading-snug text-ink">{f.name}</p>
                       {f.role && <p className="eyebrow mt-1 text-gold">{f.role}</p>}
-                      <p className="mt-2.5 text-[11.5px] uppercase tracking-[0.14em] text-ink-3">
+                      <p className="mt-2 text-[11px] uppercase tracking-[0.14em] text-ink-3">
                         More →
                       </p>
                     </div>
