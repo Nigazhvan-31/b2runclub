@@ -45,6 +45,7 @@ function Monogram({ name }: { name: string }) {
 export function FeaturedPartners() {
   const load = useCallback(() => api.collaborators(), []);
   const { data, loading } = useFetch(load);
+  const [logoErrors, setLogoErrors] = useState<Record<string, boolean>>({});
 
   const featured = (data ?? []).filter((c) => c.tier === "FEATURED");
   if (loading || featured.length === 0) return null;
@@ -99,12 +100,13 @@ export function FeaturedPartners() {
                 The monogram fallback keeps a plate — it is two letters rather
                 than a picture, and needs something to sit on.
               */}
-              {c.logo_url ? (
+              {c.logo_url && !logoErrors[c.id] ? (
                 <img
                   src={c.logo_url}
                   alt=""
                   aria-hidden
                   className="h-20 w-auto max-w-40 shrink-0 object-contain sm:h-28 sm:max-w-44"
+                  onError={() => setLogoErrors((prev) => ({ ...prev, [c.id]: true }))}
                 />
               ) : (
                 <span

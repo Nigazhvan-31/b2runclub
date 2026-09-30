@@ -49,6 +49,7 @@ export function Founders() {
   const reduced = useReducedMotion();
   /** Which card is flipped by tap. Only used where there is no hover. */
   const [flipped, setFlipped] = useState<string | null>(null);
+  const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
   const canHover = useCanHover();
   const load = useCallback(() => api.founders(), []);
   const { data, loading } = useFetch(load);
@@ -138,17 +139,18 @@ export function Founders() {
                 {/* ── Front ── */}
                 <div className="flip-face hud edge-gold border border-white/8 bg-surface">
                   <div className="relative h-full w-full overflow-hidden bg-surface-2/60">
-                    {f.photo_url ? (
+                    {f.photo_url && !imgErrors[f.id] ? (
                       <img
                         src={f.photo_url}
                         alt={f.name}
                         loading="lazy"
                         decoding="async"
                         className="h-full w-full object-cover"
+                        onError={() => setImgErrors((prev) => ({ ...prev, [f.id]: true }))}
                       />
                     ) : (
-                      <span className="grid h-full w-full place-items-center">
-                        <span className="display text-[clamp(36px,8vw,60px)] text-ink-3">
+                      <span className="grid h-full w-full place-items-center bg-gradient-to-b from-surface-2/80 to-surface">
+                        <span className="display text-[clamp(48px,10vw,72px)] font-bold text-gold tracking-wider">
                           {initials(f.name)}
                         </span>
                       </span>

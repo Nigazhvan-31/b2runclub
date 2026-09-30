@@ -16,6 +16,7 @@ import { Page, PageHeader } from "../components/layout";
 import { PageScene } from "../components/scene3d";
 import { Reveal } from "../components/motion";
 import { Tilt, TiltLayer } from "../components/tilt";
+import { Founders } from "../components/founders";
 import {
   Button,
   buttonClass,
@@ -210,6 +211,9 @@ export function About() {
               </Reveal>
             ))}
           </div>
+
+          {/* Founders */}
+          <Founders />
 
           {/* Find us */}
           {(info?.instagram || info?.whatsapp || info?.contact_email) && (
