@@ -222,11 +222,11 @@ export function Signup() {
         role: form.role,
         emergency_contact: form.emergency_contact.trim() || undefined,
       });
-      if (user.email_verified || !user.verification_required) {
+      if (user.email_verified) {
         toast(`Welcome to B² Run Club, ${user.name.split(" ")[0]}!`, "ok");
         navigate("/events", { replace: true });
       } else {
-        toast(`You're in, ${user.name.split(" ")[0]}. One more step.`, "ok");
+        toast(`You're in, ${user.name.split(" ")[0]}. Please enter the code sent to your email.`, "ok");
         navigate("/verify", { replace: true });
       }
     } catch (err) {

@@ -203,6 +203,9 @@ export function AdminDashboard() {
         description="Money in, registrations by state, and how the club is voting."
         action={
           <div className="flex flex-wrap gap-2">
+            <Link to="/scan" className={buttonClass("gold", "md")}>
+              Scan tickets
+            </Link>
             <Button variant="outline" loading={exporting} onClick={exportAll}>
               <DownloadIcon className="size-3.5" />
               Export all rosters

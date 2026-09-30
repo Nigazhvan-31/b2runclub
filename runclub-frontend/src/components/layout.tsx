@@ -356,11 +356,11 @@ function navItems(isAdmin: boolean, canRegister: boolean, isClubMember: boolean)
   ];
   // The forum is club-only — visitors and signed-out users never see the link.
   if (isClubMember) items.splice(3, 0, { to: "/forum", label: "Forum" });
-  if (canRegister) items.push({ to: "/tickets", label: "My tickets" });
+  if (canRegister && !isAdmin) items.push({ to: "/tickets", label: "My tickets" });
   if (isAdmin) {
-    // Dashboard first, then the directory. Members was previously reachable only
-    // via a button on the dashboard, which made it hard to find.
+    // Organiser tools: ticket scanner, then the dashboard and directories.
     items.push(
+      { to: "/scan", label: "Scan tickets" },
       {
         to: "/admin",
         label: "Dashboard",

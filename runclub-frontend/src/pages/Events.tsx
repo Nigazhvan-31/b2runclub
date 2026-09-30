@@ -139,9 +139,14 @@ export function Events() {
         }
         action={
           isAdmin && (
-            <Link to="/admin/events" className={buttonClass("outline", "md")}>
-              Manage events
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link to="/scan" className={buttonClass("gold", "md")}>
+                Scan tickets
+              </Link>
+              <Link to="/admin/events" className={buttonClass("outline", "md")}>
+                Manage events
+              </Link>
+            </div>
           )
         }
       />

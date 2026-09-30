@@ -230,7 +230,7 @@ export function EventDetail() {
         at the start line would have scrolled two thousand pixels to reach the
         thing they opened the page for. Hidden once the event has run.
       */}
-      {isCrew && !past && (
+      {isCrew && (
         <div className="mb-6">
           <QuickCheckIn event={event} />
         </div>

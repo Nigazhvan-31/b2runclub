@@ -112,7 +112,7 @@ export function QuickCheckIn({ event }: { event: ClubEvent }) {
                     </span>
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-[15px] font-semibold text-ink">Scan tickets</h3>
+                            <h3 className="text-[15px] font-semibold text-ink">Scan tickets & Attendance</h3>
                             {count > 0 && (
                                 <Badge color="var(--color-paid)" icon="✓">
                                     {count} in
@@ -120,14 +120,13 @@ export function QuickCheckIn({ event }: { event: ClubEvent }) {
                             )}
                         </div>
                         <p className="mt-1.5 text-[13px] leading-relaxed text-ink-2">
-                            Works on your phone — rear camera, torch, full screen. Check people in
-                            at the line without opening the console.
+                            Works on your phone — rear camera, torch, full screen. Scan runner QR codes to mark attendance and admit party members.
                         </p>
                     </div>
                 </div>
 
-                <Button className="mt-4 w-full" onClick={() => setOpen(true)}>
-                    Open the scanner
+                <Button variant="gold" className="mt-4 w-full" onClick={() => setOpen(true)}>
+                    Open Ticket Scanner (Camera / Admit)
                 </Button>
             </Card>
 

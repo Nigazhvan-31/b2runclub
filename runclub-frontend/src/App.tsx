@@ -29,6 +29,7 @@ import { NotFound } from "./pages/NotFound";
 import { Polls } from "./pages/Polls";
 import { Profile } from "./pages/Profile";
 import { RaceDay } from "./pages/RaceDay";
+import { ScanTickets } from "./pages/ScanTickets";
 
 /** Chrome-wrapped routes. */
 function Shell() {
@@ -154,6 +155,14 @@ export default function App() {
             element={
               <Guard roles={["MEMBER", "VOLUNTEER", "ADMIN"]}>
                 <MyTickets />
+              </Guard>
+            }
+          />
+          <Route
+            path="/scan"
+            element={
+              <Guard roles={["ADMIN", "VOLUNTEER"]}>
+                <ScanTickets />
               </Guard>
             }
           />
