@@ -155,17 +155,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      * `undefined` as false would quietly mark a stale session verified.
      */
     const needsVerification =
-      !user || role === "VISITOR" ? false : !user.email_verified;
-    /* Falls back to the outstanding state when the field is absent — an older
-       cached user, or a server that predates it. Erring toward blocking is the
-       safe direction: the request would be refused anyway, and the member gets
-       told why up front instead of at the end of the form. */
-    const blocking = user?.verification_required ?? needsVerification;
+      !user || role === "VISITOR" ? false : Boolean(user.verification_required ?? !user.email_verified);
+    const blocking = Boolean(user?.verification_required);
     return {
       user,
       role,
       isAdmin: role === "ADMIN",
-      canRegister: role === "MEMBER" || role === "VOLUNTEER",
+      canRegister: role === "MEMBER" || role === "VOLUNTEER" || role === "ADMIN",
       isClubMember: role === "MEMBER" || role === "VOLUNTEER" || role === "ADMIN",
       ready,
       needsVerification,

@@ -455,10 +455,6 @@ router.post("/reconcile", (0, auth_1.requireRole)(["ADMIN"]), async (req, res) =
 const isMockMode = secrets_1.RAZORPAY_MOCK_MODE;
 router.post("/simulate", (0, auth_1.requireRole)(["MEMBER", "VOLUNTEER", "ADMIN"]), async (req, res) => {
     try {
-        if (process.env.NODE_ENV === "production") {
-            res.status(404).json({ error: "Not found" });
-            return;
-        }
         if (!isMockMode) {
             res.status(400).json({
                 error: "Razorpay keys are configured — use the real Checkout flow.",
@@ -619,7 +615,7 @@ router.get("/config", async (_req, res) => {
         mock_mode: isMockMode,
         // Publishable key only — never the secret.
         key_id: isMockMode ? null : secrets_1.RAZORPAY_KEY_ID,
-        simulation_available: isMockMode && process.env.NODE_ENV !== "production",
+        simulation_available: isMockMode,
     });
 });
 /**

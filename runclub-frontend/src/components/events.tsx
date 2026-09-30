@@ -399,12 +399,22 @@ export function RegisterDialog({
       const orderId = res.registration.razorpay_order_id;
 
       // No real credentials on the backend: the order id is a mock that
-      // Checkout would reject, so don't pretend to open a payment window.
+      // Checkout would reject, so auto-settle the registration in demo/mock mode.
       if (!orderId || isMockPayment(res.razorpay_key_id, orderId)) {
-        toast("Spot held — card payments aren't configured on this backend.", "info");
-        onDone(res.registration);
-        onClose();
-        return;
+        setStage("verifying");
+        try {
+          const verified = await api.simulatePayment(res.registration.id);
+          cheer();
+          toast("Registration confirmed — your QR ticket is ready!", "ok");
+          onDone(verified.registration);
+          onClose();
+          return;
+        } catch {
+          toast("Spot held — card payments are in mock mode.", "info");
+          onDone(res.registration);
+          onClose();
+          return;
+        }
       }
 
       setStage("paying");

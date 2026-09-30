@@ -222,11 +222,13 @@ export function Signup() {
         role: form.role,
         emergency_contact: form.emergency_contact.trim() || undefined,
       });
-      toast(`You're in, ${user.name.split(" ")[0]}. One more step.`, "ok");
-      /* Straight to the code rather than to /events. Signup has already sent
-         it, and an account that cannot take a spot yet has nothing to do on
-         the events page. */
-      navigate("/verify", { replace: true });
+      if (user.email_verified || !user.verification_required) {
+        toast(`Welcome to B² Run Club, ${user.name.split(" ")[0]}!`, "ok");
+        navigate("/events", { replace: true });
+      } else {
+        toast(`You're in, ${user.name.split(" ")[0]}. One more step.`, "ok");
+        navigate("/verify", { replace: true });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {

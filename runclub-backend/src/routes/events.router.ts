@@ -860,7 +860,7 @@ router.delete("/:id", requireRole(["ADMIN"]), async (req: AuthRequest, res: Resp
 });
 
 // 6. Register / Checkout Flow
-router.post("/:id/register", requireRole(["MEMBER", "VOLUNTEER"]), requireVerified, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post("/:id/register", requireRole(["MEMBER", "VOLUNTEER", "ADMIN"]), requireVerified, async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const eventId = req.params.id as string;
         const userId = req.user!.id;

@@ -172,11 +172,20 @@ export function Verify() {
                     </p>
 
                     {!status.delivery.email && (
-                        <p className="mt-3 rounded-lg border border-gold/25 bg-gold/8 px-3 py-2 text-[12.5px] leading-relaxed text-ink-2">
-                            The club has no email credentials set, so the code is written to the
-                            server log rather than sent. An organiser can set SMTP_HOST, SMTP_USER
-                            and SMTP_PASS.
-                        </p>
+                        <div className="mt-4 rounded-xl border border-gold/30 bg-gold/10 p-4">
+                            <p className="text-[13px] leading-relaxed text-ink">
+                                SMTP email delivery is currently in simulation mode. You can instantly confirm your email address below to finish setting up your account.
+                            </p>
+                            <div className="mt-3">
+                                <Button
+                                    variant="gold"
+                                    onClick={() => confirm("000000")}
+                                    disabled={busy !== null}
+                                >
+                                    {busy === "confirm" ? "Confirming…" : "Instant Confirm Email"}
+                                </Button>
+                            </div>
+                        </div>
                     )}
 
                     {sentTo && (

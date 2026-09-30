@@ -4,7 +4,7 @@ import prisma from "../utils/prisma";
 import crypto from "crypto";
 import { AuthRequest, requireAccount } from "../middleware/auth";
 import { hashPassword, verifyPassword } from "../utils/crypto";
-import { passwordResetEmail, sendMail } from "../utils/mailer";
+import { mailerConfigured, passwordResetEmail, sendMail } from "../utils/mailer";
 import { JWT_SECRET } from "../utils/secrets";
 import { normalisePhone } from "../utils/phone";
 import {
@@ -106,23 +106,25 @@ router.post("/register", async (req: Request, res: Response): Promise<void> => {
                 role: userRole,
                 emergency_contact: emergency_contact || null,
                 phone: normalisedPhone.e164,
+                email_verified_at: mailerConfigured ? null : new Date(),
             },
         });
 
         /*
-         * Send the email code immediately, so the code is already in their inbox
-         * by the time the client lands on the verify screen. Failure is not
-         * fatal: the account exists, and the verify screen has its own resend.
-         * Throwing here would leave a registered member looking at an error and
-         * unable to register again, since their email is now taken.
+         * Send the email code immediately if mailer is configured. If not configured,
+         * the account is auto-verified so new members are not locked out.
          */
-        const codeSent = await issueCode({
-            userId: newUser.id,
-            name: newUser.name,
-            channel: "EMAIL",
-            destination: newUser.email,
-        });
-        await ensureVerificationNudge(newUser);
+        const codeSent = mailerConfigured
+            ? await issueCode({
+                  userId: newUser.id,
+                  name: newUser.name,
+                  channel: "EMAIL",
+                  destination: newUser.email,
+              })
+            : { ok: true, simulated: true, sent_to: null };
+        if (mailerConfigured) {
+            await ensureVerificationNudge(newUser);
+        }
 
         res.status(211).json({
             message: "Registration successful",
