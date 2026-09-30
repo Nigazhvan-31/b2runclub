@@ -4,12 +4,21 @@ Generates the comprehensive B² Club Complete Handoff, Hosting & Implementation 
 both as a standalone HTML document and as an executive-grade PDF using Chrome Headless.
 """
 
+import base64
 import os
+import shutil
 import subprocess
 import sys
 
 OUTPUT_HTML = "/Users/nigazhvang/Desktop/b2runclub/B2_Club_Complete_Handoff_and_Hosting_Guide.html"
 OUTPUT_PDF = "/Users/nigazhvang/Desktop/b2runclub/B2_Club_Complete_Handoff_and_Hosting_Guide.pdf"
+DESKTOP_PDF = "/Users/nigazhvang/Desktop/B2_Club_Complete_Handoff_and_Hosting_Guide.pdf"
+ARTIFACT_PDF = "/Users/nigazhvang/.gemini/antigravity/brain/20b70e5c-a420-41f2-b090-d7487fec09e8/B2_Club_Complete_Handoff_and_Hosting_Guide.pdf"
+LOGO_PATH = "/Users/nigazhvang/Desktop/b2runclub/runclub-frontend/public/logo.png"
+
+with open(LOGO_PATH, "rb") as f:
+    logo_b64 = base64.b64encode(f.read()).decode("utf-8")
+logo_data_uri = f"data:image/jpeg;base64,{logo_b64}"
 
 html_content = """<!DOCTYPE html>
 <html lang="en">
@@ -39,6 +48,73 @@ html_content = """<!DOCTYPE html>
     padding: 0;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  /* Full-document Background Logo Watermark */
+  .watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 520px;
+    height: 520px;
+    background-image: url('__LOGO_DATA_URI__');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.055;
+    mix-blend-mode: screen;
+    -webkit-mask-image: radial-gradient(circle, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 80%);
+    mask-image: radial-gradient(circle, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 80%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .doc-wrapper {
+    position: relative;
+    z-index: 1;
+  }
+
+  .cover-header-brand {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(229, 169, 60, 0.25);
+  }
+
+  .cover-brand-logo {
+    width: 105px;
+    height: 105px;
+    border-radius: 18px;
+    border: 1.5px solid rgba(229, 169, 60, 0.45);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.7), 0 0 20px rgba(229, 169, 60, 0.2);
+    display: block;
+    background: #000000;
+  }
+
+  .cover-brand-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .cover-brand-name {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: #e5a93c;
+    text-transform: uppercase;
+    line-height: 1.1;
+  }
+
+  .cover-brand-sub {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: #94a3b8;
+    text-transform: uppercase;
+    font-weight: 600;
   }
 
   .cover-page {
@@ -373,10 +449,19 @@ html_content = """<!DOCTYPE html>
 </style>
 </head>
 <body>
+<div class="watermark"></div>
+<div class="doc-wrapper">
 
 <!-- PAGE 1: COVER -->
 <div class="cover-page">
-  <div class="badge">B² Club Engineering Documentation</div>
+  <div class="cover-header-brand">
+    <img src="__LOGO_DATA_URI__" alt="B² Club Crest" class="cover-brand-logo" />
+    <div class="cover-brand-meta">
+      <div class="badge" style="margin-bottom: 0;">Official Technical Handoff Manual</div>
+      <div class="cover-brand-name">B² CLUB</div>
+      <div class="cover-brand-sub">RUN &bull; BURN &bull; BOND &bull; MADURAI</div>
+    </div>
+  </div>
   <h1 class="cover-title">B² Club Platform<br>Transfer, Architecture &amp; Hosting Manual</h1>
   <p class="cover-subtitle">
     The comprehensive technical reference, infrastructure specification, ownership transfer runbook,
@@ -1283,10 +1368,13 @@ node scripts/api-test-suite.mjs</code></pre>
     B² Club Platform Engineering Manual &bull; Compiled for B² Club, Madurai &bull; Generated October 2026
   </div>
 </div>
+</div><!-- .doc-wrapper -->
 
 </body>
 </html>
 """
+
+html_content = html_content.replace("__LOGO_DATA_URI__", logo_data_uri)
 
 with open(OUTPUT_HTML, "w", encoding="utf-8") as f:
     f.write(html_content)
@@ -1307,6 +1395,11 @@ print("Executing Chrome headless print-to-pdf...")
 res = subprocess.run(cmd, capture_output=True, text=True)
 if os.path.exists(OUTPUT_PDF) and os.path.getsize(OUTPUT_PDF) > 0:
     print(f"Success! PDF generated at: {OUTPUT_PDF} ({os.path.getsize(OUTPUT_PDF)} bytes)")
+    shutil.copyfile(OUTPUT_PDF, DESKTOP_PDF)
+    print(f"Copied to Desktop at: {DESKTOP_PDF} ({os.path.getsize(DESKTOP_PDF)} bytes)")
+    if os.path.exists(os.path.dirname(ARTIFACT_PDF)):
+        shutil.copyfile(OUTPUT_PDF, ARTIFACT_PDF)
+        print(f"Copied to Artifacts at: {ARTIFACT_PDF}")
 else:
     print("Error generating PDF:", res.stderr)
     sys.exit(1)
