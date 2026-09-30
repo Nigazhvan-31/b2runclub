@@ -10,7 +10,7 @@ import { CollaboratorScroller, FeaturedPartners } from "../components/collaborat
 import { Founders } from "../components/founders";
 import { CommunityLinks } from "../components/communityLinks";
 import { HeroVideo } from "../components/heroVideo";
-import { Hero3D, RunnerScene } from "../components/scene3d";
+import { RunnerScene } from "../components/scene3d";
 import {
   CalendarIcon,
   ClockIcon,
@@ -189,25 +189,30 @@ export function Landing() {
         heroPillRef.current,
         { opacity: 0, y: -10, scale: 0.9 },
         { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "back.out(1.7)" },
-      )
-        .fromTo(
-          [heroBtnPrimaryRef.current, heroBtnSecondaryRef.current, heroBtnGhostRef.current].filter(Boolean),
-          { opacity: 0, y: 14 },
-          { opacity: 1, y: 0, duration: 0.45, stagger: 0.08 },
-          "-=0.15",
-        )
-        .fromTo(
+      ).fromTo(
+        [heroBtnPrimaryRef.current, heroBtnSecondaryRef.current, heroBtnGhostRef.current].filter(Boolean),
+        { opacity: 0, y: 14 },
+        { opacity: 1, y: 0, duration: 0.45, stagger: 0.08 },
+        "-=0.15",
+      );
+
+      if (heroGraphicRef.current) {
+        tl.fromTo(
           heroGraphicRef.current,
           { opacity: 0, scale: 0.96 },
           { opacity: 1, scale: 1, duration: 1.1, ease: "power2.out" },
           "-=0.4",
-        )
-        .fromTo(
+        );
+      }
+
+      if (heroSpotlightRef.current) {
+        tl.fromTo(
           heroSpotlightRef.current,
           { opacity: 0, y: 22 },
           { opacity: 1, y: 0, duration: 0.55 },
-          "-=0.55",
+          "-=0.25",
         );
+      }
 
       if (heroGraphicFloatRef.current) {
         gsap
@@ -269,72 +274,85 @@ export function Landing() {
       {/* ── Hero ─────────────────────────────────────────── */}
       <section
         ref={heroRef}
-        className="relative mx-auto max-w-7xl px-4 pb-16 pt-14 sm:px-6 sm:pt-20 lg:px-8"
+        className="relative mx-auto max-w-7xl px-4 pb-12 pt-4 sm:px-6 sm:pt-6 lg:px-8"
       >
-        <HeroVideo />
+        {/*
+          The video area. HeroVideo sits inside it as `absolute inset-y-0`, so
+          scoping it to this box ends the video cleanly above the buttons.
+        */}
+        <div className="relative flex min-h-[380px] sm:min-h-[460px] lg:min-h-[520px] flex-col items-center pt-2 text-center">
+          <HeroVideo />
 
-        <div
-          ref={heroGraphicRef}
-          className="pointer-events-none absolute -top-10 right-[-6%] hidden h-[620px] w-[60%] lg:block"
-          style={{ opacity: 0 }}
-          aria-hidden
-        >
-          <div ref={heroGraphicFloatRef} className="h-full w-full">
-            <div ref={heroGraphicParallaxRef} className="h-full w-full">
-              <Hero3D className="h-full w-full" />
-            </div>
-          </div>
-        </div>
-
-        <div className="relative max-w-3xl">
+          {/* Top Centered Status Pill over the hero media */}
           <span
             ref={heroPillRef}
-            className="inline-flex items-center gap-2 rounded-full border border-gold/25 bg-gold/8 px-3 py-1.5 backdrop-blur-sm"
+            className="relative z-10 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-black/80 px-4 py-1.5 shadow-lg backdrop-blur-md"
           >
             <span className="size-1.5 rounded-full bg-gold pulse-ring" aria-hidden />
-            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-gold">
+            <span className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-gold">
               {upcoming.length > 0
                 ? `${upcoming.length} event${upcoming.length === 1 ? "" : "s"} open`
                 : "Season in planning"}
             </span>
           </span>
+        </div>
 
-          <div ref={heroButtonsRef} className="mt-8 flex flex-wrap items-center gap-4">
-            {!user ? (
-              <Link ref={heroBtnPrimaryRef} to="/signup" className={buttonClass("gold", "lg", "sweep")}>
-                Join Us
-                <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
-                  <path
-                    d="M5 12h14m-6-6 6 6-6 6"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </Link>
-            ) : (
-              <Link ref={heroBtnPrimaryRef} to="/calendar" className={buttonClass("gold", "lg", "sweep")}>
-                See the calendar
-                <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
-                  <path
-                    d="M5 12h14m-6-6 6 6-6 6"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </Link>
-            )}
+        {/* Centered Action Callout below the media matching client example */}
+        <div
+          ref={heroButtonsRef}
+          className="relative z-10 flex flex-col items-center justify-center pt-8 text-center sm:pt-10"
+        >
+          {!user ? (
             <Link
-              ref={heroBtnGhostRef}
-              to="/events"
-              className="text-[14px] font-medium text-ink-3 transition-colors hover:text-gold"
+              ref={heroBtnPrimaryRef}
+              to="/signup"
+              className={buttonClass(
+                "gold",
+                "lg",
+                "sweep px-10 py-4 text-[17px] font-bold sm:px-12 sm:py-4.5 sm:text-[18px] rounded-2xl shadow-xl shadow-gold/20",
+              )}
             >
-              or see what's on →
+              Join Us
+              <svg viewBox="0 0 24 24" className="ml-1 size-4.5" fill="none" aria-hidden>
+                <path
+                  d="M5 12h14m-6-6 6 6-6 6"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </Link>
-          </div>
+          ) : (
+            <Link
+              ref={heroBtnPrimaryRef}
+              to="/calendar"
+              className={buttonClass(
+                "gold",
+                "lg",
+                "sweep px-10 py-4 text-[17px] font-bold sm:px-12 sm:py-4.5 sm:text-[18px] rounded-2xl shadow-xl shadow-gold/20",
+              )}
+            >
+              See the calendar
+              <svg viewBox="0 0 24 24" className="ml-1 size-4.5" fill="none" aria-hidden>
+                <path
+                  d="M5 12h14m-6-6 6 6-6 6"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </Link>
+          )}
+
+          <Link
+            ref={heroBtnGhostRef}
+            to="/events"
+            className="mt-3.5 inline-block text-[14.5px] font-semibold text-gold transition-all hover:text-gold-2 hover:underline"
+          >
+            or see what's on →
+          </Link>
         </div>
 
         {/* Next event spotlight */}
