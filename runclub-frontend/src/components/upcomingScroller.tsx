@@ -181,13 +181,7 @@ export function UpcomingScroller({
   }
 
   if (events.length === 0) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-sm text-ink-2">
-          No published events right now — the organisers are drafting the next block.
-        </p>
-      </Card>
-    );
+    return null;
   }
 
   const many = events.length > 1;
