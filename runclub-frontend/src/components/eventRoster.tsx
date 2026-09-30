@@ -220,7 +220,8 @@ export function EventRoster({ event }: { event: ClubEvent }) {
           }
         />
       ) : (
-        <ul>
+        <div className="max-h-[600px] overflow-y-auto overscroll-contain divide-y divide-white/5">
+          <ul>
           {visible.map((r, i) => {
             const meta = PAYMENT_META[r.status];
             const isBlocked = Boolean(r.blocked_at);
@@ -510,6 +511,7 @@ export function EventRoster({ event }: { event: ClubEvent }) {
             );
           })}
         </ul>
+        </div>
       )}
 
       <Modal

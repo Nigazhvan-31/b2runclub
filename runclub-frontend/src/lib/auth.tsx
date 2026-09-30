@@ -161,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       role,
       isAdmin: role === "ADMIN",
-      canRegister: role === "MEMBER" || role === "VOLUNTEER" || role === "ADMIN",
+      canRegister: role === "MEMBER" || role === "VOLUNTEER",
       isClubMember: role === "MEMBER" || role === "VOLUNTEER" || role === "ADMIN",
       ready,
       needsVerification,

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { SparkIcon } from "../components/icons";
+import { SparkIcon, UsersIcon } from "../components/icons";
 import { Page, PageHeader } from "../components/layout";
 import { PageScene } from "../components/scene3d";
 import { Avatar, Badge, Button, buttonClass, Card } from "../components/ui";
@@ -10,7 +10,7 @@ import { useAuth } from "../lib/auth";
 import { fullDate, ROLE_META } from "../lib/format";
 
 export function Profile() {
-  const { user, logout, canRegister } = useAuth();
+  const { user, logout, canRegister, isAdmin } = useAuth();
 
   if (!user) return null;
   const meta = ROLE_META[user.role] ?? ROLE_META.MEMBER;
@@ -51,6 +51,40 @@ export function Profile() {
           <AccountSettings />
         </div>
       </Card>
+
+      {/* Organiser tools: direct shortcuts for club administration */}
+      {isAdmin && (
+        <Card className="mt-5 border-gold/30 bg-gold/[0.04] p-6">
+          <div className="flex items-start gap-3">
+            <span
+              className="grid size-9 shrink-0 place-items-center rounded-xl bg-gold/14 text-gold"
+              aria-hidden
+            >
+              <UsersIcon className="size-[18px]" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-[15px] font-semibold text-ink">Organiser Operations</h3>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-ink-2">
+                As a club administrator, you manage sessions, scan participant tickets, admit attendees, and review roster attendance.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2.5">
+                <Link to="/scan" className={buttonClass("gold", "sm")}>
+                  Scan tickets
+                </Link>
+                <Link to="/admin" className={buttonClass("outline", "sm")}>
+                  Dashboard
+                </Link>
+                <Link to="/admin/events" className={buttonClass("outline", "sm")}>
+                  Manage events
+                </Link>
+                <Link to="/admin/members" className={buttonClass("ghost", "sm")}>
+                  Members
+                </Link>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Attendance record and badges — only meaningful for people who run */}
       {canRegister && (

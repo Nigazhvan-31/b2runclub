@@ -12,7 +12,7 @@ import { EventRoster } from "../components/eventRoster";
 import { LocationMap } from "../components/locationMap";
 import { QuickCheckIn } from "../components/quickCheckIn";
 import { RouteCard } from "../components/routeMap";
-import { CalendarIcon, DisciplineIcon, ShareIcon, SparkIcon } from "../components/icons";
+import { CalendarIcon, DisciplineIcon, ShareIcon, SparkIcon, UsersIcon } from "../components/icons";
 import { Page } from "../components/layout";
 import { PageScene } from "../components/scene3d";
 import {
@@ -278,6 +278,13 @@ export function EventDetail() {
               : `Entry is ${inr(event.price)}, paid at registration.`}
           </p>
 
+          {/* Organiser roster right at the top of the event view */}
+          {isAdmin && (
+            <div id="roster" className="my-6">
+              <EventRoster event={event} />
+            </div>
+          )}
+
           {/* The organiser's brief. Newlines are preserved — people write lists. */}
           {event.description && (
             <>
@@ -366,8 +373,7 @@ export function EventDetail() {
           */}
           {past && registration && <EventFeedbackCard event={event} />}
 
-          {/* Organisers see who is coming, and can bar someone */}
-          {isAdmin && <EventRoster event={event} />}
+          {/* Organisers see results editor and reminders */}
           {isAdmin && past && <ResultsEditor event={event} />}
           {isAdmin && past && <FeedbackSummaryCard event={event} />}
           {isAdmin && <EventReminders event={event} />}
@@ -418,7 +424,68 @@ export function EventDetail() {
 
             <div className="hairline my-5" />
 
-            {registration ? (
+            {isAdmin ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <span
+                    aria-hidden
+                    className="grid size-8 shrink-0 place-items-center rounded-xl bg-gold/14 text-gold font-bold"
+                  >
+                    <UsersIcon className="size-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-semibold text-ink">
+                      Organiser Console
+                    </p>
+                    <p className="text-[11px] text-ink-3">
+                      Event is {event.status.toLowerCase()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-white/8 bg-surface-2/60 p-3.5 space-y-2 text-[12.5px]">
+                  <div className="flex justify-between">
+                    <span className="text-ink-3">Capacity:</span>
+                    <span className="font-semibold text-ink">{event.capacity ?? "Unlimited"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-ink-3">Price:</span>
+                    <span className="font-semibold text-ink">{event.price === 0 ? "Free" : inr(event.price)}</span>
+                  </div>
+                  {event.spots_left != null && (
+                    <div className="flex justify-between">
+                      <span className="text-ink-3">Spots left:</span>
+                      <span className="font-semibold text-gold">{event.spots_left}</span>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  variant="gold"
+                  className="w-full"
+                  onClick={() => {
+                    document.getElementById("roster")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                >
+                  View Participants Roster
+                </Button>
+
+                <Link to="/scan" className={buttonClass("outline", "md", "w-full")}>
+                  Open Ticket Scanner
+                </Link>
+
+                <Link
+                  to={`/raceday/${event.id}`}
+                  className={buttonClass("outline", "md", "w-full")}
+                >
+                  Open Race Day Console
+                </Link>
+
+                <Link to="/admin/events" className={buttonClass("ghost", "sm", "w-full")}>
+                  Edit Event & Settings
+                </Link>
+              </div>
+            ) : registration ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-2.5">
                   <span
@@ -494,12 +561,7 @@ export function EventDetail() {
                   Create an account
                 </Link>
               </div>
-            ) : /*
-                 A full event says so up front instead of letting someone fill in
-                 the waiver and then be refused. Volunteers are exempt from the cap
-                 on the backend, so they still get the register button.
-               */
-            event.full && role !== "VOLUNTEER" ? (
+            ) : event.full && role !== "VOLUNTEER" ? (
               <div className="space-y-3">
                 <Button className="w-full" disabled>
                   Fully booked
@@ -524,18 +586,13 @@ export function EventDetail() {
                 </p>
               </div>
             ) : (
-              // The backend restricts registration to MEMBER and VOLUNTEER.
               <p className="text-[13px] leading-relaxed text-ink-3">
-                {isAdmin
-                  ? "Organiser accounts can't register — you're running this one."
-                  : "Visitor accounts can't register. Ask an organiser to upgrade you to member."}
+                Visitor accounts can't register. Ask an organiser to upgrade you to member.
               </p>
             )}
 
-            {/* Crew console. Volunteers scan at the start line, so they get it too.
-                The phone scanner above it is the one-tap path; this is the full
-                desk setup. */}
-            {isCrew && (
+            {/* Crew console for volunteers */}
+            {!isAdmin && isCrew && (
               <>
                 <div className="hairline my-5" />
                 <Link
@@ -547,15 +604,6 @@ export function EventDetail() {
                 <p className="mt-2 text-center text-[11px] leading-relaxed text-ink-3">
                   Marshal posts, checkpoint tracking and the full roster.
                 </p>
-              </>
-            )}
-
-            {isAdmin && (
-              <>
-                <div className="hairline my-5" />
-                <Link to="/admin/events" className={buttonClass("outline", "sm", "w-full")}>
-                  Edit event & roster
-                </Link>
               </>
             )}
           </Card>
