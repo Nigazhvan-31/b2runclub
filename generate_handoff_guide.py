@@ -10,11 +10,12 @@ import shutil
 import subprocess
 import sys
 
-OUTPUT_HTML = "/Users/nigazhvang/Desktop/b2runclub/B2_Club_Complete_Handoff_and_Hosting_Guide.html"
-OUTPUT_PDF = "/Users/nigazhvang/Desktop/b2runclub/B2_Club_Complete_Handoff_and_Hosting_Guide.pdf"
-DESKTOP_PDF = "/Users/nigazhvang/Desktop/B2_Club_Complete_Handoff_and_Hosting_Guide.pdf"
-ARTIFACT_PDF = "/Users/nigazhvang/.gemini/antigravity/brain/20b70e5c-a420-41f2-b090-d7487fec09e8/B2_Club_Complete_Handoff_and_Hosting_Guide.pdf"
-LOGO_PATH = "/Users/nigazhvang/Desktop/b2runclub/runclub-frontend/public/logo.png"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_HTML = os.path.join(SCRIPT_DIR, "B2_Club_Complete_Handoff_and_Hosting_Guide.html")
+OUTPUT_PDF = os.path.join(SCRIPT_DIR, "B2_Club_Complete_Handoff_and_Hosting_Guide.pdf")
+DESKTOP_DIR = os.path.expanduser("~/Desktop")
+DESKTOP_PDF = os.path.join(DESKTOP_DIR, "B2_Club_Complete_Handoff_and_Hosting_Guide.pdf")
+LOGO_PATH = os.path.join(SCRIPT_DIR, "runclub-frontend/public/logo.png")
 
 with open(LOGO_PATH, "rb") as f:
     logo_b64 = base64.b64encode(f.read()).decode("utf-8")
@@ -1395,11 +1396,9 @@ print("Executing Chrome headless print-to-pdf...")
 res = subprocess.run(cmd, capture_output=True, text=True)
 if os.path.exists(OUTPUT_PDF) and os.path.getsize(OUTPUT_PDF) > 0:
     print(f"Success! PDF generated at: {OUTPUT_PDF} ({os.path.getsize(OUTPUT_PDF)} bytes)")
-    shutil.copyfile(OUTPUT_PDF, DESKTOP_PDF)
-    print(f"Copied to Desktop at: {DESKTOP_PDF} ({os.path.getsize(DESKTOP_PDF)} bytes)")
-    if os.path.exists(os.path.dirname(ARTIFACT_PDF)):
-        shutil.copyfile(OUTPUT_PDF, ARTIFACT_PDF)
-        print(f"Copied to Artifacts at: {ARTIFACT_PDF}")
+    if os.path.exists(DESKTOP_DIR):
+        shutil.copyfile(OUTPUT_PDF, DESKTOP_PDF)
+        print(f"Copied to Desktop at: {DESKTOP_PDF} ({os.path.getsize(DESKTOP_PDF)} bytes)")
 else:
     print("Error generating PDF:", res.stderr)
     sys.exit(1)
