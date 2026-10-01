@@ -10,7 +10,7 @@ import {
   TableToggle,
   type StatusSegment,
 } from "../../components/charts";
-import { ChartIcon, DownloadIcon, UsersIcon } from "../../components/icons";
+import { ChartIcon, DownloadIcon, SparkIcon, UsersIcon } from "../../components/icons";
 import { Page, PageHeader } from "../../components/layout";
 import { PageScene } from "../../components/scene3d";
 import { AnimatedNumber, ProgressRing, Reveal } from "../../components/motion";
@@ -142,6 +142,25 @@ export function AdminDashboard() {
     }
   };
 
+  const [reconciling, setReconciling] = useState(false);
+  const reconcileAll = async () => {
+    setReconciling(true);
+    try {
+      const res = await api.reconcileAllPayments();
+      if (res.settled && res.settled.length > 0) {
+        toast(`Settled ${res.settled.length} payment(s) from Razorpay!`, "ok");
+        finance.reload();
+        events.reload();
+      } else {
+        toast(`Reconciled against Razorpay: ${res.checked} bookings checked, all up to date.`, "ok");
+      }
+    } catch (err: any) {
+      toast(err?.message || "Reconciliation failed", "err");
+    } finally {
+      setReconciling(false);
+    }
+  };
+
   const f = finance.data;
   const allEvents = events.data ?? [];
   const upcoming = allEvents.filter(
@@ -245,6 +264,10 @@ export function AdminDashboard() {
             <Button variant="outline" size="md" loading={exporting} onClick={exportAll}>
               <DownloadIcon className="size-3.5" />
               Export rosters
+            </Button>
+            <Button variant="outline" size="md" loading={reconciling} onClick={reconcileAll}>
+              <SparkIcon className="size-3.5" />
+              Reconcile Razorpay
             </Button>
             <Link to="/admin/events" className={buttonClass("outline", "md")}>
               Manage events

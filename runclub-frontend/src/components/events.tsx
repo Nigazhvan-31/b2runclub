@@ -425,6 +425,23 @@ export function RegisterDialog({
       onDone(verified.registration);
       onClose();
     } catch (err) {
+      // If the overlay closed or an error occurred, check if Razorpay actually collected payment
+      // (this happens routinely on mobile phones when returning from external UPI apps like GPay/PhonePe).
+      if (held) {
+        try {
+          const reconciled = await api.reconcilePayment(held.id);
+          if (ticketReady(reconciled.registration.status)) {
+            cheer();
+            toast("Payment confirmed — your ticket is live.", "ok");
+            onDone(reconciled.registration);
+            onClose();
+            return;
+          }
+        } catch {
+          // Gateway has no completed payment yet; proceed with normal dismiss/error handling
+        }
+      }
+
       // Closing the payment overlay is not a failure: the spot is still held.
       if (err instanceof CheckoutDismissed && held) {
         toast("Spot held — pay from My tickets when you're ready.", "info");

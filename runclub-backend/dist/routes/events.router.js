@@ -1012,6 +1012,7 @@ router.post("/:id/register", (0, auth_1.requireRole)(["MEMBER", "VOLUNTEER", "AD
                     amount: amountPaise, // In Indian Paisa
                     currency: "INR",
                     receipt: `event_registration_${Date.now()}`,
+                    payment_capture: 1, // Automatically capture payments immediately
                     notes: {
                         eventId,
                         userId,

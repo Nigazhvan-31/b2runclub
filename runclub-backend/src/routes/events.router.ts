@@ -1104,6 +1104,7 @@ router.post("/:id/register", requireRole(["MEMBER", "VOLUNTEER", "ADMIN"]), requ
                     amount: amountPaise, // In Indian Paisa
                     currency: "INR",
                     receipt: `event_registration_${Date.now()}`,
+                    payment_capture: 1, // Automatically capture payments immediately
                     notes: {
                         eventId,
                         userId,

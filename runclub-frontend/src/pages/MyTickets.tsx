@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CancelRegistrationDialog } from "../components/cancelDialog";
 import { EventCoverBackdrop } from "../components/eventCover";
@@ -271,6 +271,39 @@ export function MyTickets() {
     params.delete("open");
     setParams(params, { replace: true });
   }, [params, regs, setParams]);
+
+  // Auto-reconcile pending bookings against Razorpay on visit (e.g. if runner paid via UPI and browser callback was lost)
+  const checkedPendingRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!data || data.length === 0) return;
+    const toCheck = data.filter(
+      (r) =>
+        r.status === "PENDING" &&
+        !r.blocked_at &&
+        r.razorpay_order_id &&
+        !r.razorpay_order_id.startsWith("order_mock_") &&
+        !checkedPendingRef.current.has(r.id),
+    );
+    if (toCheck.length === 0) return;
+
+    toCheck.forEach((r) => checkedPendingRef.current.add(r.id));
+
+    toCheck.forEach(async (reg) => {
+      try {
+        const res = await api.reconcilePayment(reg.id);
+        if (res.changed && ticketReady(res.registration.status)) {
+          setData((prev) =>
+            (prev ?? []).map((r) =>
+              r.id === reg.id ? { ...res.registration, event: r.event } : r,
+            ),
+          );
+          toast(res.message, "ok");
+        }
+      } catch {
+        // Not yet captured or unable to reach gateway
+      }
+    });
+  }, [data, setData, toast]);
 
   const counts = useMemo(() => {
     const upcoming = regs.filter((r) => r.event && !isPast(r.event.date_time)).length;

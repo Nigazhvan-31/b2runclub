@@ -289,6 +289,23 @@ async function settleFromGateway(registration: any): Promise<
 
     const authorized = payments.find((p) => p.status === "authorized");
     if (authorized) {
+        // If the payment was authorized but not captured (e.g. auto-capture was delayed or disabled),
+        // capture it automatically now so the member gets their ticket immediately.
+        try {
+            const captured = await (razorpay.payments as any).capture(
+                authorized.id,
+                authorized.amount,
+                "INR",
+            );
+            if (captured && (captured.status === "captured" || captured.captured)) {
+                return { outcome: "paid", paymentId: captured.id, amountPaise: captured.amount };
+            }
+        } catch (captureErr: any) {
+            console.error(
+                `[reconcile] auto-capture failed for authorized payment ${authorized.id}:`,
+                captureErr?.error?.description || captureErr?.message || captureErr,
+            );
+        }
         return {
             outcome: "authorized",
             paymentId: authorized.id,
@@ -674,6 +691,7 @@ router.post(
                     amount: registration.amount_due_paise, // paise, as booked
                     currency: "INR",
                     receipt: `reg_${registration.id.slice(0, 30)}`,
+                    payment_capture: 1, // Automatically capture payments immediately
                     notes: {
                         registration_id: registration.id,
                         event: registration.event.title,

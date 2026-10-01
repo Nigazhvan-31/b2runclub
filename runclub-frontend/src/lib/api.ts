@@ -525,6 +525,20 @@ export const api = {
       { method: "POST" },
     ),
 
+  /** Reconciles all pending and expired bookings across the system (or for one event). */
+  reconcileAllPayments: (eventId?: string) =>
+    request<{
+      checked: number;
+      settled: Array<{ registration_id: string; member: string; event: string; payment_id: string; amount: number }>;
+      awaiting_capture: any[];
+      unpaid: number;
+      skipped: number;
+      failed: any[];
+    }>("/api/payments/reconcile", {
+      method: "POST",
+      body: eventId ? { event_id: eventId } : {},
+    }),
+
   /** Hands a Checkout callback to the backend, which verifies the signature. */
   verifyPayment: (input: {
     razorpay_order_id: string;
