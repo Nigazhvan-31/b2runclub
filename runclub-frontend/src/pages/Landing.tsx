@@ -17,9 +17,9 @@ import {
   SparkIcon,
   TicketIcon,
 } from "../components/icons";
-import { AnimatedNumber, Reveal } from "../components/motion";
+import { Reveal } from "../components/motion";
 import { PillarCard } from "../components/PillarCard";
-import { Tilt, TiltLayer } from "../components/tilt";
+import { Tilt } from "../components/tilt";
 import { buttonClass, Card } from "../components/ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -142,9 +142,6 @@ export function Landing() {
 
   const next = upcoming[0];
   const rest = upcoming.slice(1, 4);
-
-  const allEvents = events ?? [];
-  const disciplines = new Set(allEvents.map((e) => e.type)).size;
   const photos = gallery ?? [];
 
   // ── Scroll refs for the "How it works" sticky section ──
@@ -457,31 +454,6 @@ export function Landing() {
         </section>
       )}
 
-      {/* ── By the numbers ─────────── */}
-      <Reveal>
-        <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-          <div className="datastrip mb-10" />
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { label: "Sessions on the board", value: allEvents.length, suffix: "" },
-              { label: "Published & open", value: upcoming.length, suffix: "" },
-              { label: "Disciplines", value: Math.max(disciplines, 3), suffix: "" },
-              { label: "Sessions / month", value: 8, suffix: "+" },
-            ].map((s) => (
-              <Tilt key={s.label} max={8} lift={9}>
-                <Card hover className="hud edge-gold h-full p-6">
-                  <TiltLayer depth={26}>
-                    <p className="display foil text-[40px] leading-none">
-                      <AnimatedNumber value={s.value} format={(v) => `${Math.round(v)}${s.suffix}`} />
-                    </p>
-                  </TiltLayer>
-                  <p className="eyebrow mt-3">{s.label}</p>
-                </Card>
-              </Tilt>
-            ))}
-          </div>
-        </section>
-      </Reveal>
 
       {/* ── Inside the club ──────────────────────────────── */}
       <ClubFeatures />
