@@ -157,10 +157,10 @@ export function Verify() {
                             </p>
                         </div>
                         <div className="flex gap-2">
-                            <Button variant="outline" onClick={() => navigate("/profile")}>
+                            <Button variant="outline" onClick={() => navigate("/profile", { replace: true })}>
                                 Profile
                             </Button>
-                            <Button onClick={() => navigate("/events")}>Find a session</Button>
+                            <Button onClick={() => navigate("/events", { replace: true })}>Find a session</Button>
                         </div>
                     </div>
                 </Card>

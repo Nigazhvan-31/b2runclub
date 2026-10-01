@@ -83,6 +83,24 @@ function Guard({ roles, children }: { roles?: Role[]; children: ReactNode }) {
   return <>{children}</>;
 }
 
+/** Gate a route on being signed OUT (login, signup, password resets). */
+function GuestGuard({ children }: { children: ReactNode }) {
+  const { user, ready } = useAuth();
+  const location = useLocation();
+
+  if (!ready) return <Booting />;
+  if (user) {
+    const from = (location.state as { from?: string } | null)?.from;
+    const dest = from && from !== "/login" && from !== "/signup"
+      ? from
+      : user.role === "ADMIN"
+        ? "/admin"
+        : "/events";
+    return <Navigate to={dest} replace />;
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   const { ready } = useAuth();
   if (!ready) return <Booting />;
@@ -93,12 +111,40 @@ export default function App() {
           sign-in, sign-up, the password flows — open at the top too. */}
       <ScrollManager />
       <Routes>
-        {/* Bare pages */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        {/* Bare pages — accessible only when signed out */}
+        <Route
+          path="/login"
+          element={
+            <GuestGuard>
+              <Login />
+            </GuestGuard>
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <GuestGuard>
+              <Signup />
+            </GuestGuard>
+          }
+        />
         {/* Both are reachable while signed out — that is the whole point. */}
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route
+          path="/forgot-password"
+          element={
+            <GuestGuard>
+              <ForgotPassword />
+            </GuestGuard>
+          }
+        />
+        <Route
+          path="/reset-password"
+          element={
+            <GuestGuard>
+              <ResetPassword />
+            </GuestGuard>
+          }
+        />
 
         {/* Chrome pages */}
         <Route element={<Shell />}>

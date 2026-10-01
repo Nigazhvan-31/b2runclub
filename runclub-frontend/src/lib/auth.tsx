@@ -105,6 +105,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  // Re-sync session on pageshow (mobile browser back/forward cache), focus and storage.
+  useEffect(() => {
+    const syncSession = () => {
+      const token = session.token();
+      const stored = session.user();
+
+      if (!token || tokenExpired(token)) {
+        if (token) session.clear();
+        setUser(null);
+      } else if (stored) {
+        setUser(stored);
+      }
+    };
+
+    window.addEventListener("pageshow", syncSession);
+    window.addEventListener("focus", syncSession);
+    window.addEventListener("storage", syncSession);
+    return () => {
+      window.removeEventListener("pageshow", syncSession);
+      window.removeEventListener("focus", syncSession);
+      window.removeEventListener("storage", syncSession);
+    };
+  }, []);
+
   // A 401 anywhere means the token is dead; drop the session.
   useEffect(() => {
     const onUnauthorized = () => setUser(null);

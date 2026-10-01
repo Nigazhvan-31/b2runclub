@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useCallback, useState, type ReactNode } from "react";
 import { CLUB_NAME } from "../lib/brand";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Logo } from "../components/layout";
 import { PageScene } from "../components/scene3d";
 import { Button, buttonClass, Field, Input, PasswordInput, Spinner, useToast } from "../components/ui";
@@ -64,7 +64,7 @@ function AuthLayout({ children, aside }: { children: ReactNode; aside: ReactNode
 /* ── Sign in ──────────────────────────────────────────────── */
 
 export function Login() {
-  const { login } = useAuth();
+  const { login, user, ready } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -75,6 +75,10 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
 
   const from = (location.state as { from?: string } | null)?.from ?? "/events";
+
+  if (ready && user) {
+    return <Navigate to={user.role === "ADMIN" ? "/admin" : from} replace />;
+  }
 
   const submit = async (e: React.FormEvent, creds?: { email: string; password: string }) => {
     e.preventDefault();
@@ -111,7 +115,7 @@ export function Login() {
       <h1 className="display text-3xl">Sign in</h1>
       <p className="mt-2 text-sm text-ink-3">
         New here?{" "}
-        <Link to="/signup" className="font-medium text-gold hover:underline">
+        <Link to="/signup" replace className="font-medium text-gold hover:underline">
           Join the club
         </Link>
       </p>
@@ -141,7 +145,7 @@ export function Login() {
         </Field>
 
         <div className="-mt-2 text-right">
-          <Link to="/forgot-password" className="text-[12.5px] text-ink-3 hover:text-gold">
+          <Link to="/forgot-password" replace className="text-[12.5px] text-ink-3 hover:text-gold">
             Forgotten your password?
           </Link>
         </div>
@@ -185,9 +189,13 @@ export function Login() {
 /* ── Join ─────────────────────────────────────────────────── */
 
 export function Signup() {
-  const { signup } = useAuth();
+  const { signup, user, ready } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+
+  if (ready && user) {
+    return <Navigate to={user.role === "ADMIN" ? "/admin" : "/events"} replace />;
+  }
 
   const [form, setForm] = useState({
     name: "",
@@ -266,7 +274,7 @@ export function Signup() {
       <h1 className="display text-3xl">Join the club</h1>
       <p className="mt-2 text-sm text-ink-3">
         Already a member?{" "}
-        <Link to="/login" className="font-medium text-gold hover:underline">
+        <Link to="/login" replace className="font-medium text-gold hover:underline">
           Sign in
         </Link>
       </p>
@@ -379,12 +387,17 @@ const RESET_ASIDE = (
 );
 
 export function ForgotPassword() {
+  const { user, ready } = useAuth();
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Only ever set in development, where SMTP is unconfigured. */
   const [devLink, setDevLink] = useState<string | null>(null);
+
+  if (ready && user) {
+    return <Navigate to="/events" replace />;
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -435,7 +448,7 @@ export function ForgotPassword() {
             <Button variant="outline" className="flex-1" onClick={() => setSent(false)}>
               Use another email
             </Button>
-            <Link to="/login" className={buttonClass("gold", "md", "flex-1")}>
+            <Link to="/login" replace className={buttonClass("gold", "md", "flex-1")}>
               Back to sign in
             </Link>
           </div>
@@ -474,7 +487,7 @@ export function ForgotPassword() {
 
             <p className="text-center text-[13px] text-ink-3">
               Remembered it?{" "}
-              <Link to="/login" className="font-medium text-gold hover:underline">
+              <Link to="/login" replace className="font-medium text-gold hover:underline">
                 Sign in
               </Link>
             </p>
@@ -488,10 +501,15 @@ export function ForgotPassword() {
 /* ── Choose a new password ────────────────────────────────── */
 
 export function ResetPassword() {
+  const { user, ready } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const [params] = useSearchParams();
   const token = params.get("token") ?? "";
+
+  if (ready && user) {
+    return <Navigate to="/events" replace />;
+  }
 
   const check = useCallback(
     (): Promise<{ valid: boolean; email?: string }> =>
