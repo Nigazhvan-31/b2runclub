@@ -5,7 +5,6 @@ import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
 import { Link } from "react-router-dom";
 import { ClubFeatures } from "../components/clubFeatures";
-import { EventCard } from "../components/events";
 import { CollaboratorScroller, FeaturedPartners } from "../components/collaborators";
 import { Founders } from "../components/founders";
 import { CommunityLinks } from "../components/communityLinks";
@@ -13,17 +12,17 @@ import { HeroVideo } from "../components/heroVideo";
 import { RunnerScene } from "../components/scene3d";
 import {
   CalendarIcon,
-  DisciplineIcon,
   SparkIcon,
   TicketIcon,
 } from "../components/icons";
 import { Reveal } from "../components/motion";
 import { PillarCard } from "../components/PillarCard";
 import { Tilt } from "../components/tilt";
+import { UpcomingScroller } from "../components/upcomingScroller";
 import { buttonClass, Card } from "../components/ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { countdown, eventTime, fullDate, inr, isPast } from "../lib/format";
+import { isPast } from "../lib/format";
 import { useFetch } from "../lib/useFetch";
 
 gsap.registerPlugin(SplitText);
@@ -128,10 +127,10 @@ function useCardReveal(
 }
 
 export function Landing() {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
 
   const load = useCallback(() => api.events(), []);
-  const { data: events } = useFetch(load);
+  const { data: events, loading } = useFetch(load);
 
   const loadGallery = useCallback(() => api.gallery(), []);
   const { data: gallery } = useFetch(loadGallery);
@@ -140,8 +139,6 @@ export function Landing() {
     .filter((e) => e.status === "PUBLISHED" && !isPast(e.date_time))
     .sort((a, b) => +new Date(a.date_time) - +new Date(b.date_time));
 
-  const next = upcoming[0];
-  const rest = upcoming.slice(1, 4);
   const photos = gallery ?? [];
 
   // ── Scroll refs for the "How it works" sticky section ──
@@ -350,67 +347,10 @@ export function Landing() {
           </Link>
         </div>
 
-        {/* Next event spotlight — only render when an upcoming event is published */}
-        {next && (
-          <div ref={heroSpotlightRef} className="mt-14">
-            <Tilt max={4} lift={5} glare={false}>
-              <Card className="speedlines relative overflow-hidden">
-                <div
-                  className="pointer-events-none absolute -right-16 -top-24 size-72 rounded-full opacity-[0.15] blur-3xl"
-                  style={{ background: "var(--color-gold)" }}
-                  aria-hidden
-                />
-                <div className="relative flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-end lg:justify-between">
-                  <div className="min-w-0">
-                    <p className="eyebrow text-gold">Next up</p>
-                    <h2 className="display mt-3 text-[clamp(26px,3.6vw,40px)]">{next.title}</h2>
-                    <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px] text-ink-2">
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-gold" aria-hidden>
-                          <DisciplineIcon type={next.type} className="size-4" />
-                        </span>
-                        {next.type}
-                      </span>
-                      <span>{fullDate(next.date_time)}</span>
-                      <span>{eventTime(next.date_time)}</span>
-                      <span className="text-ink-3">{next.location}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-end gap-x-6 gap-y-4 lg:shrink-0">
-                    <div>
-                      <p className="eyebrow whitespace-nowrap">Starts in</p>
-                      <p className="display tnum mt-1.5 whitespace-nowrap text-[32px] text-gold">
-                        {countdown(next.date_time) ?? "now"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="eyebrow">Entry</p>
-                      <p className="display mt-1.5 whitespace-nowrap text-[32px]">
-                        {next.price === 0 ? "Free" : inr(next.price)}
-                      </p>
-                    </div>
-                    {isAdmin ? (
-                      <Link
-                        to={`/raceday/${next.id}`}
-                        className={buttonClass("gold", "md", "mb-1 w-full sm:w-auto")}
-                      >
-                        Manage event
-                      </Link>
-                    ) : (
-                      <Link
-                        to={`/events/${next.id}`}
-                        className={buttonClass("gold", "md", "mb-1 w-full sm:w-auto")}
-                      >
-                        Take a spot
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            </Tilt>
-          </div>
-        )}
+        {/* Next event spotlight — scroller over every upcoming session so users can slide to see the second and other events */}
+        <div ref={heroSpotlightRef} className="mt-14">
+          <UpcomingScroller events={upcoming} loading={loading} />
+        </div>
       </section>
 
       {/* ── Pillars ──────────────────────────────────────── */}
@@ -430,29 +370,6 @@ export function Landing() {
           ))}
         </div>
       </section>
-
-      {/* ── More events ──────────────────────────────────── */}
-      {rest.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="mb-6 flex items-end justify-between gap-4">
-            <div>
-              <p className="eyebrow mb-2 text-gold">Also on the board</p>
-              <h2 className="display text-[clamp(24px,3vw,32px)]">Coming up</h2>
-            </div>
-            <Link
-              to="/events"
-              className="text-[13px] font-medium text-ink-3 transition-colors hover:text-gold"
-            >
-              All events →
-            </Link>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {rest.map((e, i) => (
-              <EventCard key={e.id} event={e} index={i} />
-            ))}
-          </div>
-        </section>
-      )}
 
 
       {/* ── Inside the club ──────────────────────────────── */}

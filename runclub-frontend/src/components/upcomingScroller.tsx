@@ -23,8 +23,8 @@ function Chevron({ dir }: { dir: "left" | "right" }) {
 }
 
 const arrowClass =
-  "grid size-9 place-items-center rounded-lg border border-white/10 text-ink-2 transition-colors " +
-  "hover:border-gold/40 hover:text-gold disabled:pointer-events-none disabled:opacity-30";
+  "grid size-9 place-items-center rounded-full border border-white/15 bg-white/5 text-ink-2 transition-colors " +
+  "hover:border-gold/50 hover:bg-gold/15 hover:text-gold active:scale-95 disabled:pointer-events-none disabled:opacity-25";
 
 /** One session, as the spotlight panel. Unchanged from the single-card version. */
 function SpotlightCard({ event, label }: { event: ClubEvent; label: string }) {
