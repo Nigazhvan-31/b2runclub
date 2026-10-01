@@ -492,7 +492,7 @@ export function Landing() {
               ].map((r, i) => (
                 <Reveal key={r.role} delay={i * 0.07}>
                   <Tilt max={7} lift={9} className="h-full">
-                    <Card hover className="hud edge-gold flex aspect-square flex-col justify-between p-6">
+                    <Card hover className="hud edge-gold flex h-full flex-col p-6">
                       <div>
                         <span
                           className="inline-flex items-center gap-2 rounded-full px-2.5 py-1"
@@ -503,9 +503,9 @@ export function Landing() {
                             {r.role}
                           </span>
                         </span>
-                        <p className="display mt-4 text-[18px]">{r.line}</p>
+                        <p className="display mt-3 text-[18px]">{r.line}</p>
                       </div>
-                      <ul className="mt-3 space-y-2">
+                      <ul className="mt-4 space-y-2.5">
                         {r.perks.map((perk) => (
                           <li key={perk} className="flex gap-2 text-[12.5px] leading-tight text-ink-2">
                             <span className="mt-1 size-1 shrink-0 rounded-full bg-gold" aria-hidden />
