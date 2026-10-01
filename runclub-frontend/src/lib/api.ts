@@ -811,6 +811,10 @@ export const api = {
       changed: boolean;
     }>(`/api/admin/members/${id}/role`, { method: "PUT", body: { role } }),
 
+  /** Permanently remove/delete a member from the club (Admin only). */
+  deleteMember: (id: string) =>
+    request<{ message: string }>(`/api/admin/members/${id}`, { method: "DELETE" }),
+
   pollAnalytics: (pollId: string) =>
     request<PollAnalytics>(`/api/admin/polls/${pollId}/analytics`),
 

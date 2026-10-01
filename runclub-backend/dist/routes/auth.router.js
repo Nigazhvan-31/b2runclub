@@ -142,6 +142,12 @@ router.post("/login", async (req, res) => {
             res.status(401).json({ error: "Invalid email or password" });
             return;
         }
+        if (user.role === "BLOCKED") {
+            res.status(403).json({
+                error: "Your account has been blocked by a club organiser. Please contact the club.",
+            });
+            return;
+        }
         // Generate JWT Token containing id, email, role
         const token = jsonwebtoken_1.default.sign({ id: user.id, email: user.email, role: user.role }, secrets_1.JWT_SECRET, { expiresIn: "24h" });
         /*

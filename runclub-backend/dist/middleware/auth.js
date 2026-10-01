@@ -44,6 +44,10 @@ function requireRole(allowedRoles) {
                 /* retain userRole from token */
             }
         }
+        if (userRole === "BLOCKED") {
+            res.status(403).json({ error: "Your account has been blocked. Access denied." });
+            return;
+        }
         if (allowedRoles.includes(userRole)) {
             next();
         }

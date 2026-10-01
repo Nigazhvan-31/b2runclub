@@ -28,13 +28,14 @@ import type { AssignableRole, Member, MemberActivity } from "../../lib/types";
 import { MARSHAL_MIN_SESSIONS } from "../../lib/policies";
 import { useFetch } from "../../lib/useFetch";
 
-type Filter = "all" | "MEMBER" | "VOLUNTEER" | "VISITOR" | "ADMIN";
+type Filter = "all" | "MEMBER" | "VOLUNTEER" | "VISITOR" | "BLOCKED" | "ADMIN";
 
 const ROLE_TINT: Record<string, string> = {
   ADMIN: "var(--color-gold)",
   VOLUNTEER: "var(--color-free)",
   MEMBER: "var(--color-paid)",
   VISITOR: "var(--color-ink-3)",
+  BLOCKED: "var(--color-failed)",
 };
 
 /** What each role can actually do, shown so a change is never a guess. */
@@ -44,6 +45,8 @@ const ROLE_EXPLAINER: Record<AssignableRole, string> = {
   MEMBER: "Registers for events and pays the entry fee. Can post, comment and vote.",
   VISITOR:
     "Read-only. Can browse events and polls, but cannot register, post or vote.",
+  BLOCKED:
+    "Blocked from the club. Cannot sign in, register for events, post on the forum, or vote.",
 };
 
 /** One labelled fact in the expanded detail grid. */
@@ -81,11 +84,28 @@ export function ManageMembers() {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState<{ member: Member; role: AssignableRole } | null>(null);
+  const [deleting, setDeleting] = useState<Member | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   /** Which row has its full detail panel open. */
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    try {
+      await api.deleteMember(deleting.id);
+      setData((prev) => (prev ?? []).filter((m) => m.id !== deleting.id));
+      toast(`${deleting.name} was removed from the club.`, "ok");
+      setDeleting(null);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to remove member", "err");
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
 
   /**
    * The whole directory as a spreadsheet.
@@ -115,6 +135,7 @@ export function ManageMembers() {
       VOLUNTEER: members.filter((m) => m.role === "VOLUNTEER").length,
       MEMBER: members.filter((m) => m.role === "MEMBER").length,
       VISITOR: members.filter((m) => m.role === "VISITOR").length,
+      BLOCKED: members.filter((m) => m.role === "BLOCKED").length,
     }),
     [members],
   );
@@ -223,6 +244,7 @@ export function ManageMembers() {
             { value: "MEMBER", label: "Members", count: counts.MEMBER },
             { value: "VOLUNTEER", label: "Volunteers", count: counts.VOLUNTEER },
             { value: "VISITOR", label: "Visitors", count: counts.VISITOR },
+            { value: "BLOCKED", label: "Blocked", count: counts.BLOCKED },
           ]}
         />
 
@@ -345,7 +367,7 @@ export function ManageMembers() {
                         </span>
                       ) : (
                         <>
-                          {m.role !== "VOLUNTEER" && (
+                          {m.role !== "VOLUNTEER" && m.role !== "BLOCKED" && (
                             <Button
                               size="sm"
                               onClick={() => setPending({ member: m, role: "VOLUNTEER" })}
@@ -359,10 +381,14 @@ export function ManageMembers() {
                               variant="outline"
                               onClick={() => setPending({ member: m, role: "MEMBER" })}
                             >
-                              {m.role === "VOLUNTEER" ? "Back to member" : "Make member"}
+                              {m.role === "VOLUNTEER"
+                                ? "Back to member"
+                                : m.role === "BLOCKED"
+                                  ? "Unblock"
+                                  : "Make member"}
                             </Button>
                           )}
-                          {m.role !== "VISITOR" && (
+                          {m.role !== "VISITOR" && m.role !== "BLOCKED" && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -371,6 +397,33 @@ export function ManageMembers() {
                               Restrict
                             </Button>
                           )}
+                          {m.role !== "BLOCKED" ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                              onClick={() => setPending({ member: m, role: "BLOCKED" })}
+                            >
+                              Block
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                              onClick={() => setPending({ member: m, role: "MEMBER" })}
+                            >
+                              Unblock
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                            onClick={() => setDeleting(m)}
+                          >
+                            Remove
+                          </Button>
                         </>
                       )}
                     </div>
@@ -414,7 +467,7 @@ export function ManageMembers() {
         </div>
       )}
 
-      {/* Confirm — a role change alters what someone pays, so it is explicit */}
+      {/* Confirm — a role change alters what someone pays or allows access */}
       <Modal
         open={pending !== null}
         onClose={() => setPending(null)}
@@ -423,7 +476,11 @@ export function ManageMembers() {
             ? "Promote to volunteer?"
             : pending?.role === "VISITOR"
               ? "Restrict to visitor?"
-              : "Change to member?"
+              : pending?.role === "BLOCKED"
+                ? "Block member?"
+                : pending?.member.role === "BLOCKED"
+                  ? "Unblock member?"
+                  : "Change to member?"
         }
         subtitle={pending ? `${pending.member.name} · ${pending.member.email}` : undefined}
       >
@@ -452,7 +509,7 @@ export function ManageMembers() {
             </p>
 
             {/* The one genuinely surprising bit: history is not rewritten. */}
-            {pending.member.registration_count > 0 && (
+            {pending.member.registration_count > 0 && pending.role !== "BLOCKED" && (
               <p className="rounded-xl border border-[color:var(--color-pending)]/25 bg-[color:var(--color-pending)]/8 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-ink-2">
                 <span
                   aria-hidden
@@ -477,7 +534,7 @@ export function ManageMembers() {
               </Button>
               <Button
                 className={cn("flex-1")}
-                variant={pending.role === "VISITOR" ? "danger" : "gold"}
+                variant={pending.role === "VISITOR" || pending.role === "BLOCKED" ? "danger" : "gold"}
                 loading={busy}
                 onClick={apply}
               >
@@ -485,7 +542,45 @@ export function ManageMembers() {
                   ? "Promote"
                   : pending.role === "VISITOR"
                     ? "Restrict"
-                    : "Change role"}
+                    : pending.role === "BLOCKED"
+                      ? "Block member"
+                      : pending.member.role === "BLOCKED"
+                        ? "Unblock member"
+                        : "Change role"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Delete / Remove Member Confirmation Modal */}
+      <Modal
+        open={deleting !== null}
+        onClose={() => setDeleting(null)}
+        title="Remove member from club?"
+        subtitle={deleting ? `${deleting.name} · ${deleting.email}` : undefined}
+      >
+        {deleting && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-rose-500/25 bg-rose-500/[0.08] p-4 text-[13px] leading-relaxed text-rose-200">
+              <p className="font-semibold text-rose-300">Permanent Removal</p>
+              <p className="mt-1 text-ink-2">
+                Are you sure you want to permanently remove <strong className="text-ink">{deleting.name}</strong> ({deleting.email})?
+                This will delete their member account and event registrations from the directory. This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex gap-2.5 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setDeleting(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                className="flex-1"
+                loading={deleteBusy}
+                onClick={handleDelete}
+              >
+                Permanently Remove
               </Button>
             </div>
           </div>

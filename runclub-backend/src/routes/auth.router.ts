@@ -158,6 +158,13 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
+        if (user.role === "BLOCKED") {
+            res.status(403).json({
+                error: "Your account has been blocked by a club organiser. Please contact the club.",
+            });
+            return;
+        }
+
         // Generate JWT Token containing id, email, role
         const token = jwt.sign(
             { id: user.id, email: user.email, role: user.role },

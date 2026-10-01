@@ -904,7 +904,7 @@ router.get("/members", requireRole(["ADMIN"]), async (req: AuthRequest, res: Res
  * handing out organiser rights from it would make privilege escalation a
  * one-click operation. Promote an organiser directly in the database instead.
  */
-const ASSIGNABLE_ROLES = ["MEMBER", "VOLUNTEER", "VISITOR"];
+const ASSIGNABLE_ROLES = ["MEMBER", "VOLUNTEER", "VISITOR", "BLOCKED"];
 
 router.put("/members/:id/role", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -965,24 +965,80 @@ router.put("/members/:id/role", requireRole(["ADMIN"]), async (req: AuthRequest,
 
         // Tell the person what changed, and what it means for them.
         const message =
-            role === "VOLUNTEER"
-                ? `You're now a club volunteer. Marshal an event and your entry is comped — future registrations are free.`
-                : previousRole === "VOLUNTEER"
-                  ? `Your club role is now ${role.toLowerCase()}. Volunteer comped entry no longer applies.`
-                  : `Your club role is now ${role.toLowerCase()}.`;
+            role === "BLOCKED"
+                ? "Your account has been blocked by an organiser. Please contact the club."
+                : role === "VOLUNTEER"
+                  ? `You're now a club volunteer. Marshal an event and your entry is comped — future registrations are free.`
+                  : previousRole === "VOLUNTEER"
+                    ? `Your club role is now ${role.toLowerCase()}. Volunteer comped entry no longer applies.`
+                    : `Your club role is now ${role.toLowerCase()}.`;
 
         await prisma.notification.create({
             data: { user_id: userId, message },
         });
 
         res.json({
-            message: `${updated.name} is now a ${role.toLowerCase()}`,
+            message: `${updated.name} is now ${role === "BLOCKED" ? "blocked" : `a ${role.toLowerCase()}`}`,
             user: updated,
             previous_role: previousRole,
             changed: true,
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message || "Failed to change role" });
+    }
+});
+
+/**
+ * 4b. Permanently Delete / Remove a member account (Admin only).
+ *
+ * Removes the member and cascades all child records cleanly in one transaction.
+ */
+router.delete("/members/:id", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const userId = req.params.id as string;
+        if (userId === req.user!.id) {
+            res.status(400).json({ error: "You cannot delete your own organiser account" });
+            return;
+        }
+
+        const target = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, name: true, email: true, role: true },
+        });
+
+        if (!target) {
+            res.status(404).json({ error: "Member not found" });
+            return;
+        }
+
+        if (target.role === "ADMIN") {
+            res.status(403).json({ error: "Cannot delete an organiser from this panel" });
+            return;
+        }
+
+        await prisma.$transaction(async (tx) => {
+            // Remove dependent records in child tables
+            await tx.registrationAnswer.deleteMany({ where: { registration: { user_id: userId } } });
+            await tx.registrationGuest.deleteMany({ where: { registration: { user_id: userId } } });
+            await tx.eventRegistration.deleteMany({ where: { user_id: userId } });
+            await tx.notification.deleteMany({ where: { user_id: userId } });
+            await tx.comment.deleteMany({ where: { user_id: userId } });
+            await tx.post.deleteMany({ where: { author_id: userId } });
+            await tx.pollVote.deleteMany({ where: { user_id: userId } });
+            await tx.photo.deleteMany({ where: { uploader_id: userId } });
+            await tx.eventFeedback.deleteMany({ where: { user_id: userId } });
+            await tx.eventResult.deleteMany({ where: { user_id: userId } });
+            await tx.shiftAssignment.deleteMany({ where: { user_id: userId } });
+            await tx.checkpointSplit.deleteMany({ where: { user_id: userId } });
+            await tx.healthWorkout.deleteMany({ where: { user_id: userId } });
+            await tx.verificationCode.deleteMany({ where: { user_id: userId } });
+            await tx.passwordResetToken.deleteMany({ where: { user_id: userId } });
+            await tx.user.delete({ where: { id: userId } });
+        });
+
+        res.json({ message: `Member ${target.name} (${target.email}) was removed successfully` });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message || "Failed to remove member" });
     }
 });
 

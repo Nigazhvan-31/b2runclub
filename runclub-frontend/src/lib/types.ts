@@ -1,7 +1,7 @@
 /** Mirrors runclub-backend/prisma/schema.prisma. The backend uses string
  *  literals rather than enums, so these are string unions. */
 
-export type Role = "ADMIN" | "MEMBER" | "VOLUNTEER" | "VISITOR";
+export type Role = "ADMIN" | "MEMBER" | "VOLUNTEER" | "VISITOR" | "BLOCKED";
 export type EventStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 /**
  * Where a booking stands.
@@ -351,7 +351,7 @@ export interface MemberActivity {
 }
 
 /** Roles an organiser may assign — ADMIN is deliberately not grantable. */
-export type AssignableRole = "MEMBER" | "VOLUNTEER" | "VISITOR";
+export type AssignableRole = "MEMBER" | "VOLUNTEER" | "VISITOR" | "BLOCKED";
 
 export interface FinancialOverview {
   total_revenue: number;

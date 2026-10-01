@@ -271,6 +271,7 @@ export const ROLE_META: Record<string, { label: string; tint: string }> = {
   MEMBER: { label: "Member", tint: "text-ink-2" },
   VOLUNTEER: { label: "Volunteer", tint: "text-[color:var(--color-free)]" },
   VISITOR: { label: "Visitor", tint: "text-ink-3" },
+  BLOCKED: { label: "Blocked", tint: "text-rose-400" },
 };
 
 /**
