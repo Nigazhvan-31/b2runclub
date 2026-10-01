@@ -112,6 +112,13 @@ export function UpcomingScroller({
   const [active, setActive] = useState(0);
   const [edges, setEdges] = useState({ start: true, end: true });
 
+  // Mouse drag-to-swipe states for laptop / desktop users
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const startScrollLeft = useRef(0);
+  const hasDragged = useRef(false);
+  const dragStartTime = useRef(0);
+
   /*
    * Which panel is on screen, worked out from the panel centre nearest the
    * scrollport centre. Dividing scrollLeft by a panel width would need the gap
@@ -136,8 +143,8 @@ export function UpcomingScroller({
 
     setActive(best);
     setEdges({
-      start: el.scrollLeft <= 2,
-      end: el.scrollLeft >= el.scrollWidth - el.clientWidth - 2,
+      start: el.scrollLeft <= 5,
+      end: el.scrollLeft >= el.scrollWidth - el.clientWidth - 5,
     });
   }, []);
 
@@ -159,15 +166,88 @@ export function UpcomingScroller({
     frame.current = requestAnimationFrame(sync);
   };
 
-  /** Centres panel `i`, matching the snap position rather than fighting it. */
+  /** Centres panel `i`, matching the snap position smoothly. */
   const go = (i: number) => {
     const el = trackRef.current;
-    const panel = el?.children[i] as HTMLElement | undefined;
-    if (!el || !panel) return;
+    if (!el) return;
+    const clamped = Math.max(0, Math.min(events.length - 1, i));
+    const panels = Array.from(el.children) as HTMLElement[];
+    const panel = panels[clamped];
+    if (!panel) return;
     el.scrollTo({
       left: panel.offsetLeft + panel.offsetWidth / 2 - el.clientWidth / 2,
       behavior: "smooth",
     });
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Only capture primary mouse button on laptop/desktop; mobile touch uses native momentum scrolling
+    if (e.pointerType !== "mouse" || e.button !== 0 || !trackRef.current || events.length <= 1) return;
+    isDragging.current = true;
+    startX.current = e.pageX;
+    startScrollLeft.current = trackRef.current.scrollLeft;
+    hasDragged.current = false;
+    dragStartTime.current = Date.now();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging.current || !trackRef.current || e.pointerType !== "mouse") return;
+    const dx = e.pageX - startX.current;
+    if (Math.abs(dx) > 6) {
+      hasDragged.current = true;
+      trackRef.current.scrollLeft = startScrollLeft.current - dx;
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging.current || e.pointerType !== "mouse") return;
+    isDragging.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+
+    if (hasDragged.current && trackRef.current) {
+      const dx = e.pageX - startX.current;
+      const dt = Date.now() - dragStartTime.current;
+      const velocity = Math.abs(dx) / (dt || 1);
+
+      if (dx < -40 || (velocity > 0.35 && dx < -15)) {
+        go(Math.min(events.length - 1, active + 1));
+      } else if (dx > 40 || (velocity > 0.35 && dx > 15)) {
+        go(Math.max(0, active - 1));
+      } else {
+        go(active);
+      }
+    }
+  };
+
+  const onClickCapture = (e: React.MouseEvent) => {
+    // Prevent accidental clicks on buttons/links while dragging to swipe
+    if (hasDragged.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      setTimeout(() => {
+        hasDragged.current = false;
+      }, 50);
+    }
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (events.length <= 1) return;
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      go(active - 1);
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      go(active + 1);
+    }
   };
 
   if (loading) {
@@ -184,73 +264,151 @@ export function UpcomingScroller({
     return null;
   }
 
-  const many = events.length > 1;
+  const many = events.length >= 2;
 
   return (
-    <div>
+    <div className="relative group/scroller">
+      {/* Floating Left chevron button (Laptop & Mobile) */}
+      {many && (
+        <button
+          type="button"
+          onClick={() => go(active - 1)}
+          disabled={edges.start}
+          aria-label="Previous session"
+          className={cn(
+            "absolute left-1 sm:-left-5 top-1/2 -translate-y-1/2 z-30",
+            "flex size-11 sm:size-13 items-center justify-center rounded-full",
+            "border border-white/20 bg-stone-950/85 text-white shadow-2xl backdrop-blur-md",
+            "transition-all duration-200 hover:scale-110 hover:border-gold hover:bg-gold/25 hover:text-gold active:scale-90",
+            "disabled:pointer-events-none disabled:opacity-0 focus-visible:outline-gold",
+          )}
+        >
+          <svg viewBox="0 0 24 24" className="size-5 sm:size-6" fill="none" aria-hidden>
+            <path
+              d="m15 18-6-6 6-6"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      )}
+
+      {/* Floating Right chevron button (Laptop & Mobile) */}
+      {many && (
+        <button
+          type="button"
+          onClick={() => go(active + 1)}
+          disabled={edges.end}
+          aria-label="Next session"
+          className={cn(
+            "absolute right-1 sm:-right-5 top-1/2 -translate-y-1/2 z-30",
+            "flex size-11 sm:size-13 items-center justify-center rounded-full",
+            "border border-white/20 bg-stone-950/85 text-white shadow-2xl backdrop-blur-md",
+            "transition-all duration-200 hover:scale-110 hover:border-gold hover:bg-gold/25 hover:text-gold active:scale-90",
+            "disabled:pointer-events-none disabled:opacity-0 focus-visible:outline-gold",
+          )}
+        >
+          <svg viewBox="0 0 24 24" className="size-5 sm:size-6" fill="none" aria-hidden>
+            <path
+              d="m9 6 6 6-6 6"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      )}
+
       {/*
        * The negative margin cancels the padding, so a panel is exactly as wide
        * as the sections above and below it and the card's left edge stays on
        * the page's own gutter. The padding itself is headroom for card-glow's
-       * halo: a scroll container clips to its padding box, and without it the
-       * gold ring along the card edge would be sliced off.
+       * halo.
        *
-       * overflow-y is pinned to hidden because a container with overflow-x:auto
-       * turns the other axis into a scroll container too, and a stray subpixel
-       * would then hang a second scrollbar inside the section.
+       * Supports:
+       * - Native touch swiping with momentum on mobile phones
+       * - Click-and-drag mouse swiping on laptop/desktop
+       * - Left/Right keyboard arrow navigation
+       * - Trackpad 2-finger horizontal scroll
        */}
       <div
         ref={trackRef}
         onScroll={many ? onScroll : undefined}
+        onPointerDown={many ? onPointerDown : undefined}
+        onPointerMove={many ? onPointerMove : undefined}
+        onPointerUp={many ? onPointerUp : undefined}
+        onPointerCancel={many ? onPointerUp : undefined}
+        onClickCapture={many ? onClickCapture : undefined}
+        onKeyDown={many ? onKeyDown : undefined}
         role="region"
         aria-label="Upcoming sessions"
         aria-live="off"
         tabIndex={many ? 0 : -1}
         className={cn(
-          "no-scrollbar -mx-4 flex gap-4 overflow-y-hidden px-4 py-6",
+          "no-scrollbar -mx-4 flex gap-4 overflow-y-hidden px-4 py-6 relative",
           "rounded-[calc(var(--radius-card)+1rem)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold",
-          many ? "snap-x snap-mandatory overflow-x-auto overscroll-x-contain" : "overflow-x-hidden",
+          many
+            ? "snap-x snap-mandatory overflow-x-auto overscroll-x-contain cursor-grab active:cursor-grabbing touch-pan-y select-none"
+            : "overflow-x-hidden",
         )}
       >
         {events.map((event, i) => (
-          <div key={event.id} className="w-full shrink-0 snap-center">
+          <div key={event.id} className="w-full shrink-0 snap-center snap-always">
             <SpotlightCard
               event={event}
-              /* The first panel keeps the label the section is known by; the
-                 rest say where you are, which the dots alone cannot on a phone
-                 where they sit below the fold of the card. */
-              label={i === 0 ? "Next up" : `${i + 1} of ${events.length}`}
+              label={
+                many
+                  ? i === 0
+                    ? `Next up · 1 of ${events.length}`
+                    : `Upcoming · ${i + 1} of ${events.length}`
+                  : "Next up"
+              }
             />
           </div>
         ))}
       </div>
 
       {many && (
-        <div className="mt-1 flex items-center justify-between gap-4">
-          {events.length <= 8 ? (
-            <div className="flex items-center gap-2">
-              {events.map((event, i) => (
-                <button
-                  key={event.id}
-                  onClick={() => go(i)}
-                  aria-label={`Show ${event.title}`}
-                  aria-current={i === active}
-                  className={cn(
-                    "h-1.5 rounded-full transition-all duration-300",
-                    i === active ? "w-6 bg-gold" : "w-1.5 bg-white/25 hover:bg-white/45",
-                  )}
-                />
-              ))}
-            </div>
-          ) : (
-            /* Past a handful, a dot per session is a row of confetti. */
-            <p className="eyebrow tnum">
-              {active + 1} / {events.length}
-            </p>
-          )}
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-4 px-1">
+          <div className="flex items-center gap-3">
+            {events.length <= 8 ? (
+              <div className="flex items-center gap-2">
+                {events.map((event, i) => (
+                  <button
+                    key={event.id}
+                    onClick={() => go(i)}
+                    aria-label={`Show ${event.title}`}
+                    aria-current={i === active}
+                    className={cn(
+                      "h-2 rounded-full transition-all duration-300",
+                      i === active
+                        ? "w-8 bg-gold shadow-[0_0_12px_rgba(233,185,73,0.5)]"
+                        : "w-2 bg-white/25 hover:bg-white/50",
+                    )}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="eyebrow tnum text-gold">
+                {active + 1} / {events.length}
+              </p>
+            )}
 
-          <div className="flex items-center gap-1.5">
+            <span className="text-[13px] font-medium text-ink-2">
+              <span className="font-semibold text-gold">{active + 1}</span> of{" "}
+              <span className="text-ink">{events.length}</span> upcoming sessions
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <span className="hidden sm:inline-block text-[12.5px] text-ink-3">
+              Swipe or click to browse
+            </span>
             <button
+              type="button"
               onClick={() => go(active - 1)}
               disabled={edges.start}
               aria-label="Previous session"
@@ -259,6 +417,7 @@ export function UpcomingScroller({
               <Chevron dir="left" />
             </button>
             <button
+              type="button"
               onClick={() => go(active + 1)}
               disabled={edges.end}
               aria-label="Next session"
