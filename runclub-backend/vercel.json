@@ -10,7 +10,11 @@
     },
     {
       "path": "/api/cron/holds",
-      "schedule": "0 2 * * *"
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/reconcile",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

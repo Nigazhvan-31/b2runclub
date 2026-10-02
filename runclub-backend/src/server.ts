@@ -98,6 +98,98 @@ app.all("/api/cron/holds", async (req, res) => {
     }
 });
 
+/**
+ * Payment reconciliation sweep, for schedulers.
+ *
+ * Runs alongside the holds cron (every 15 minutes in production). For every
+ * PENDING registration that has a real Razorpay order, it asks Razorpay
+ * whether the payment was captured — which covers the common UPI case where
+ * the member's browser tab is killed after paying in GPay/PhonePe but before
+ * the callback returns. The sweep finds those, marks them PAID, sends a
+ * confirmation notification, and sends an email.
+ *
+ * Idempotent: if a registration is already PAID or FREE the sweep skips it.
+ */
+app.all("/api/cron/reconcile", async (req, res) => {
+    if (!cronAuthorised(req, res)) return;
+    try {
+        // Import lazily so we can keep this file's own imports clean.
+        const { default: paymentsRouter } = await import("./routes/payments.router");
+        // We invoke the admin reconcile endpoint logic directly via a small helper
+        // to avoid duplicating the sweep code here. The helper is defined inline
+        // because payments.router exports a Router, not its helper functions.
+        const prismaClient = (await import("./utils/prisma")).default;
+        const Razorpay = (await import("razorpay")).default;
+        const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_MOCK_MODE } = await import("./utils/secrets");
+        const { sendMail, ticketConfirmationEmail } = await import("./utils/mailer");
+        const { formatEventDate } = await import("./utils/time");
+
+        if (RAZORPAY_MOCK_MODE) {
+            res.json({ ok: true, skipped: "mock_mode" });
+            return;
+        }
+
+        const rz = new Razorpay({
+            key_id: RAZORPAY_KEY_ID ?? "unconfigured",
+            key_secret: RAZORPAY_KEY_SECRET ?? "unconfigured",
+        });
+
+        const pending = await prismaClient.eventRegistration.findMany({
+            where: {
+                status: { in: ["PENDING", "EXPIRED"] },
+                razorpay_order_id: { not: null },
+            },
+            include: { event: true, user: { select: { name: true, email: true } } },
+        }) as any[];
+
+        const settled: string[] = [];
+        const SETTLED_FIELDS = { hold_expires_at: null, expired_at: null, payment_reminder_sent_at: null };
+
+        for (const reg of pending) {
+            if (!reg.razorpay_order_id || reg.razorpay_order_id.startsWith("order_mock_")) continue;
+            try {
+                const list = (await (rz.orders as any).fetchPayments(reg.razorpay_order_id)) as { items?: any[] };
+                const captured = (list?.items ?? []).find((p: any) => p.status === "captured");
+                if (!captured) continue;
+
+                await prismaClient.eventRegistration.update({
+                    where: { id: reg.id },
+                    data: { status: "PAID", razorpay_payment_id: captured.id, ...SETTLED_FIELDS },
+                });
+                await prismaClient.notification.create({
+                    data: {
+                        user_id: reg.user_id,
+                        message: `Your payment for "${reg.event.title}" is confirmed — the QR ticket is ready.`,
+                        link: `/api/events/registration/${reg.id}/ticket`,
+                    },
+                });
+                if (reg.user?.email) {
+                    const appUrl = (process.env.APP_URL ?? "https://b2club.in").replace(/\/$/, "");
+                    const mail = ticketConfirmationEmail({
+                        name: reg.user.name ?? reg.user.email,
+                        eventTitle: reg.event.title,
+                        when: formatEventDate(reg.event.date_time),
+                        location: reg.event.location ?? "",
+                        isFree: false,
+                        ticketUrl: `${appUrl}/tickets`,
+                        amountPaid: `₹${((reg.amount_due_paise ?? 0) / 100).toFixed(0)}`,
+                    });
+                    sendMail({ ...mail, to: reg.user.email }).catch(() => {});
+                }
+                settled.push(reg.id);
+                console.log(`[cron/reconcile] settled ${reg.id} via payment ${captured.id}`);
+            } catch {
+                // Gateway error for one registration — don't abort the rest
+            }
+        }
+
+        res.json({ ok: true, checked: pending.length, settled: settled.length, settled_ids: settled });
+    } catch (error: any) {
+        console.error("[cron] reconcile sweep failed:", error?.message || error);
+        res.status(500).json({ error: error?.message || "Reconcile sweep failed" });
+    }
+});
+
 // Apply JWT authentication parser globally
 app.use(authenticateJWT);
 

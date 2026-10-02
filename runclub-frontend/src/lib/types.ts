@@ -241,6 +241,8 @@ export interface EventRegistrationRow {
   cancelled_at?: string | null;
   cancel_reason?: string | null;
   created_at?: string;
+  /** Razorpay order id, present when payment is required. Used to reconcile stuck PENDING registrations. */
+  razorpay_order_id?: string | null;
 }
 
 export interface Author {

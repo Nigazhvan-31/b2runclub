@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { bookingClosed, cn, inr, PAYMENT_META, ROLE_META } from "../lib/format";
 import type { ClubEvent, EventRegistrationRow, PartyMember } from "../lib/types";
@@ -162,6 +162,68 @@ export function EventRoster({ event }: { event: ClubEvent }) {
     }
   };
 
+  // ── Auto-reconcile PENDING registrations when roster loads ────────────────
+  // When a member pays via UPI on mobile and their browser tab is killed before
+  // the callback fires, the DB stays at PENDING even though Razorpay captured
+  // the money. The admin opening this page triggers a silent check so those
+  // registrations flip to PAID immediately — no manual intervention needed.
+  const [reconciling, setReconciling] = useState(false);
+  const autoCheckedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!data || data.length === 0) return;
+    const toCheck = data.filter(
+      (r) =>
+        r.status === "PENDING" &&
+        !r.blocked_at &&
+        r.razorpay_order_id &&
+        !(r.razorpay_order_id as string).startsWith("order_mock_") &&
+        !autoCheckedRef.current.has(r.id),
+    );
+    if (toCheck.length === 0) return;
+
+    toCheck.forEach((r) => autoCheckedRef.current.add(r.id));
+
+    // Fire-and-forget — best effort, no UI noise unless something actually changed.
+    toCheck.forEach(async (reg) => {
+      try {
+        const res = await api.reconcilePayment(reg.id);
+        if (res.changed && (res.registration.status === "PAID" || res.registration.status === "FREE")) {
+          setData((prev) =>
+            (prev ?? []).map((r) =>
+              r.id === reg.id ? { ...r, status: res.registration.status as EventRegistrationRow["status"] } : r,
+            ),
+          );
+          toast(`${reg.name}'s payment confirmed — ticket is live.`, "ok");
+        }
+      } catch {
+        // Gateway not reachable or no payment yet — silent, not an error for the organiser
+      }
+    });
+  }, [data, setData, toast]);
+
+  // Manual "Sync payments" — runs admin-level bulk reconcile for this event.
+  const reconcileAll = async () => {
+    setReconciling(true);
+    try {
+      const res = await api.reconcileAllPayments(event.id);
+      if (res.settled?.length > 0) {
+        // Flip those rows to PAID in local state so the UI updates immediately.
+        const settledIds = new Set(res.settled.map((s: { registration_id: string }) => s.registration_id));
+        setData((prev) =>
+          (prev ?? []).map((r) => (settledIds.has(r.id) ? { ...r, status: "PAID" as EventRegistrationRow["status"] } : r)),
+        );
+        toast(`${res.settled.length} payment${res.settled.length === 1 ? "" : "s"} confirmed and tickets issued.`, "ok");
+      } else {
+        toast("All payments are already up to date.", "ok");
+      }
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Sync failed", "err");
+    } finally {
+      setReconciling(false);
+    }
+  };
+
   return (
     <Card className="mt-6 overflow-hidden p-0">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/8 p-5">
@@ -179,20 +241,35 @@ export function EventRoster({ event }: { event: ClubEvent }) {
           </p>
         </div>
 
-        {rows.length > 4 && (
-          <div className="relative w-full sm:w-56">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3">
-              <SearchIcon className="size-4" />
-            </span>
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search the roster"
-              aria-label="Search the roster"
-              className="h-10 pl-9"
-            />
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Sync payments — reconciles PENDING registrations against Razorpay */}
+          {rows.some((r) => r.status === "PENDING" && !r.blocked_at) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={reconcileAll}
+              disabled={reconciling}
+              className="h-9 gap-1.5 text-[12px]"
+            >
+              {reconciling ? "Syncing…" : "⟳ Sync payments"}
+            </Button>
+          )}
+
+          {rows.length > 4 && (
+            <div className="relative w-full sm:w-56">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3">
+                <SearchIcon className="size-4" />
+              </span>
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search the roster"
+                aria-label="Search the roster"
+                className="h-10 pl-9"
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {loading ? (

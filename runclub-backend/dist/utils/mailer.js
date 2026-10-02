@@ -13,6 +13,7 @@ exports.passwordResetEmail = passwordResetEmail;
 exports.verificationCodeEmail = verificationCodeEmail;
 exports.reminderEmail = reminderEmail;
 exports.paymentReminderEmail = paymentReminderEmail;
+exports.ticketConfirmationEmail = ticketConfirmationEmail;
 const nodemailer_1 = __importDefault(require("nodemailer"));
 const brand_1 = require("./brand");
 const SMTP_HOST = process.env.SMTP_HOST;
@@ -386,6 +387,57 @@ function paymentReminderEmail(input) {
     return {
         to: "",
         subject: `${input.eventTitle} — ${input.amountDue} outstanding, ${input.timeLeft} left`,
+        html,
+        text,
+    };
+}
+/**
+ * Sent immediately when a member's payment is confirmed (PAID) or when a
+ * free/comped registration is completed (FREE). Tells them their ticket is
+ * ready so they are not left guessing after the Razorpay overlay closes.
+ *
+ * Also emitted by the reconciliation sweep when a UPI payment that closed the
+ * browser tab is detected later — so the email arrives only once the money is
+ * confirmed, never for a stuck PENDING booking.
+ */
+function ticketConfirmationEmail(input) {
+    const paidLine = input.isFree
+        ? `<p style="margin:0 0 6px;color:#48bb78;font-size:14px;line-height:1.6;">Your place is confirmed — no payment required.</p>`
+        : `<p style="margin:0 0 6px;color:#48bb78;font-size:14px;line-height:1.6;">Payment of <strong style="color:${INK};">${input.amountPaid}</strong> confirmed. Your QR ticket is ready.</p>`;
+    const html = shell(`
+      <p style="margin:0 0 6px;color:${GOLD};font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;">Registration confirmed</p>
+      <h1 style="margin:0 0 14px;color:${INK};font-size:26px;line-height:1.15;font-weight:800;letter-spacing:-0.03em;">${input.eventTitle}</h1>
+      <p style="margin:0 0 18px;color:#a5aab5;font-size:14px;line-height:1.6;">
+        Hi ${input.name}, you're in!<br>
+        <strong style="color:${INK};">${input.when}</strong><br>${input.location}
+      </p>
+      ${paidLine}
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 6px;">
+        <tr><td style="background:${GOLD};border-radius:10px;">
+          <a href="${input.ticketUrl}" style="display:inline-block;padding:12px 22px;color:#161000;font-size:14px;font-weight:700;text-decoration:none;">View my ticket</a>
+        </td></tr>
+      </table>
+      <p style="margin:18px 0 0;color:#6d737f;font-size:12px;line-height:1.6;">
+        Have this QR code ready at the start line. Arrive 15 minutes early for the briefing.
+      </p>`, `You're registered for ${input.eventTitle}`);
+    const text = [
+        `Registration confirmed — ${input.eventTitle}`,
+        "",
+        `Hi ${input.name}, you're in!`,
+        `${input.when}`,
+        `${input.location}`,
+        "",
+        input.isFree
+            ? "Your place is confirmed — no payment required."
+            : `Payment of ${input.amountPaid} confirmed. Your QR ticket is ready.`,
+        "",
+        input.ticketUrl,
+        "",
+        "Have your QR code ready at the start line. Arrive 15 minutes early.",
+    ].join("\n");
+    return {
+        to: "",
+        subject: `You're registered for ${input.eventTitle}`,
         html,
         text,
     };

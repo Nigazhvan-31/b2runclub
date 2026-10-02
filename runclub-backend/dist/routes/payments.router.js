@@ -11,6 +11,7 @@ const razorpay_1 = __importDefault(require("razorpay"));
 const secrets_1 = require("../utils/secrets");
 const time_1 = require("../utils/time");
 const registrationStatus_1 = require("../utils/registrationStatus");
+const mailer_1 = require("../utils/mailer");
 const razorpay = new razorpay_1.default({
     // Placeholder strings only; every call is gated behind RAZORPAY_MOCK_MODE.
     key_id: secrets_1.RAZORPAY_KEY_ID ?? "unconfigured",
@@ -167,7 +168,7 @@ router.post("/verify", (0, auth_1.requireRole)(["MEMBER", "VOLUNTEER", "ADMIN"])
         }
         const registration = await prisma_1.default.eventRegistration.findUnique({
             where: { razorpay_order_id },
-            include: { event: true },
+            include: { event: true, user: { select: { name: true, email: true } } },
         });
         if (!registration) {
             res.status(404).json({ error: "No registration found for that order" });
@@ -194,6 +195,20 @@ router.post("/verify", (0, auth_1.requireRole)(["MEMBER", "VOLUNTEER", "ADMIN"])
                 link: `/api/events/registration/${registration.id}/ticket`,
             },
         });
+        // Send confirmation email.
+        if (registration.user?.email) {
+            const appUrl = (process.env.APP_URL ?? "https://b2club.in").replace(/\/$/, "");
+            const mail = (0, mailer_1.ticketConfirmationEmail)({
+                name: registration.user.name ?? registration.user.email,
+                eventTitle: registration.event.title,
+                when: (0, time_1.formatEventDate)(registration.event.date_time),
+                location: registration.event.location ?? "",
+                isFree: false,
+                ticketUrl: `${appUrl}/tickets`,
+                amountPaid: `₹${((registration.amount_due_paise ?? 0) / 100).toFixed(0)}`,
+            });
+            (0, mailer_1.sendMail)({ ...mail, to: registration.user.email }).catch((e) => console.error("[payments/verify] confirmation email failed:", e?.message || e));
+        }
         res.json({ message: "Payment verified", registration: updated });
     }
     catch (error) {
@@ -269,6 +284,22 @@ async function markPaidFromGateway(registration, paymentId) {
             link: `/api/events/registration/${registration.id}/ticket`,
         },
     });
+    // Send confirmation email so the member has a record in their inbox.
+    if (registration.user?.email) {
+        const appUrl = process.env.APP_URL?.replace(/\/$/, "") ?? "https://b2club.in";
+        const ticketUrl = `${appUrl}/tickets`;
+        const amountPaise = registration.amount_due_paise ?? 0;
+        const mail = (0, mailer_1.ticketConfirmationEmail)({
+            name: registration.user.name ?? registration.user.email,
+            eventTitle: registration.event.title,
+            when: (0, time_1.formatEventDate)(registration.event.date_time),
+            location: registration.event.location ?? "",
+            isFree: false,
+            ticketUrl,
+            amountPaid: `₹${(amountPaise / 100).toFixed(0)}`,
+        });
+        (0, mailer_1.sendMail)({ ...mail, to: registration.user.email }).catch((e) => console.error("[payments] confirmation email failed:", e?.message || e));
+    }
     return updated;
 }
 /**
@@ -288,7 +319,7 @@ router.post("/reconcile/:registrationId", (0, auth_1.requireRole)(["MEMBER", "VO
         }
         const registration = (await prisma_1.default.eventRegistration.findUnique({
             where: { id: req.params.registrationId },
-            include: { event: true },
+            include: { event: true, user: { select: { name: true, email: true } } },
         }));
         if (!registration) {
             res.status(404).json({ error: "Registration not found" });

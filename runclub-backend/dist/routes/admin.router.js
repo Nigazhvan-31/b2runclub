@@ -346,6 +346,7 @@ router.get("/events/:id/registrations", (0, auth_1.requireRole)(["ADMIN"]), asyn
             })),
             party_size: (r.guests ?? []).length || 1,
             amount_due_paise: r.amount_due_paise,
+            razorpay_order_id: r.razorpay_order_id ?? null,
         })));
     }
     catch (error) {
