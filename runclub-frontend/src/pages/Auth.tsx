@@ -191,10 +191,13 @@ export function Login() {
 export function Signup() {
   const { signup, user, ready } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
 
+  const from = (location.state as { from?: string } | null)?.from ?? "/events";
+
   if (ready && user) {
-    return <Navigate to={user.role === "ADMIN" ? "/admin" : "/events"} replace />;
+    return <Navigate to={user.role === "ADMIN" ? "/admin" : from} replace />;
   }
 
   const [form, setForm] = useState({
@@ -232,10 +235,10 @@ export function Signup() {
       });
       if (user.email_verified) {
         toast(`Welcome to B² Run Club, ${user.name.split(" ")[0]}!`, "ok");
-        navigate("/events", { replace: true });
+        navigate(from, { replace: true });
       } else {
         toast(`You're in, ${user.name.split(" ")[0]}. Please enter the code sent to your email.`, "ok");
-        navigate("/verify", { replace: true });
+        navigate("/verify", { replace: true, state: { from } });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");

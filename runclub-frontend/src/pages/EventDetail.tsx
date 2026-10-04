@@ -563,7 +563,11 @@ export function EventDetail() {
                 >
                   Sign in to register
                 </Link>
-                <Link to="/signup" className={buttonClass("ghost", "sm", "w-full")}>
+                <Link
+                  to="/signup"
+                  state={{ from: `/events/${event.id}` }}
+                  className={buttonClass("ghost", "sm", "w-full")}
+                >
                   Create an account
                 </Link>
               </div>

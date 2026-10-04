@@ -45,7 +45,12 @@ function SpotlightCard({ event, label }: { event: ClubEvent; label: string }) {
         <div className="relative flex h-full flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <p className="eyebrow text-gold">{label}</p>
-            <h2 className="display mt-3 text-[clamp(26px,3.6vw,40px)]">{event.title}</h2>
+            <Link
+              to={isAdmin ? `/raceday/${event.id}` : `/events/${event.id}`}
+              className="relative z-20 block transition-colors group-hover:text-gold"
+            >
+              <h2 className="display mt-3 text-[clamp(26px,3.6vw,40px)]">{event.title}</h2>
+            </Link>
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px] text-ink-2">
               <span className="flex items-center gap-1.5">
                 <span className="text-gold" aria-hidden>
@@ -73,14 +78,14 @@ function SpotlightCard({ event, label }: { event: ClubEvent; label: string }) {
             {isAdmin ? (
               <Link
                 to={`/raceday/${event.id}`}
-                className={buttonClass("gold", "md", "mb-1 w-full sm:w-auto")}
+                className={buttonClass("gold", "md", "mb-1 w-full sm:w-auto relative z-20 cursor-pointer")}
               >
                 Manage event
               </Link>
             ) : (
               <Link
                 to={`/events/${event.id}`}
-                className={buttonClass("gold", "md", "mb-1 w-full sm:w-auto")}
+                className={buttonClass("gold", "md", "mb-1 w-full sm:w-auto relative z-20 cursor-pointer")}
               >
                 Take a spot
               </Link>
@@ -183,23 +188,32 @@ export function UpcomingScroller({
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     // Only capture primary mouse button on laptop/desktop; mobile touch uses native momentum scrolling
     if (e.pointerType !== "mouse" || e.button !== 0 || !trackRef.current || events.length <= 1) return;
+
+    // Never intercept or start drag on interactive controls (links, buttons, inputs)
+    const target = e.target as HTMLElement | null;
+    if (target?.closest("a, button, input, textarea, select, [role='button']")) {
+      return;
+    }
+
     isDragging.current = true;
     startX.current = e.pageX;
     startScrollLeft.current = trackRef.current.scrollLeft;
     hasDragged.current = false;
     dragStartTime.current = Date.now();
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging.current || !trackRef.current || e.pointerType !== "mouse") return;
     const dx = e.pageX - startX.current;
     if (Math.abs(dx) > 6) {
-      hasDragged.current = true;
+      if (!hasDragged.current) {
+        hasDragged.current = true;
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          // ignore
+        }
+      }
       trackRef.current.scrollLeft = startScrollLeft.current - dx;
     }
   };
@@ -207,10 +221,12 @@ export function UpcomingScroller({
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging.current || e.pointerType !== "mouse") return;
     isDragging.current = false;
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
     }
 
     if (hasDragged.current && trackRef.current) {
@@ -229,7 +245,7 @@ export function UpcomingScroller({
   };
 
   const onClickCapture = (e: React.MouseEvent) => {
-    // Prevent accidental clicks on buttons/links while dragging to swipe
+    // Prevent accidental clicks on child elements ONLY if an actual drag gesture occurred
     if (hasDragged.current) {
       e.preventDefault();
       e.stopPropagation();
