@@ -385,7 +385,7 @@ function RosterModal({
               rows={rows.map((r) => [
                 `${r.name} · ${r.email}`,
                 r.role_at_event,
-                r.waiver_signed === "true" ? "Signed" : "—",
+                r.waiver_signed === "true" || r.waiver_signed === "Yes" ? "Signed" : "—",
                 PAYMENT_META[r.status]?.label ?? r.status,
               ])}
             />
