@@ -101,9 +101,9 @@ export function Login() {
         <div className="max-w-md">
           <p className="eyebrow mb-4 text-gold">Members' entrance</p>
           <h2 className="display text-[clamp(34px,4.4vw,52px)]">
-            The club runs
+            Madurai's first
             <br />
-            on <span className="text-gold">rhythm.</span>
+            <span className="text-gold">runclub.</span>
           </h2>
           <p className="mt-5 text-[15px] leading-relaxed text-ink-2">
             Sign in to grab your spot on the next run, pull up your QR ticket, vote on routes and
