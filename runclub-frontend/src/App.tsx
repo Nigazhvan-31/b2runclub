@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Footer, Navbar, ScrollManager } from "./components/layout";
+import { initAnalytics, trackPageView } from "./lib/analytics";
 import { VerificationBanner } from "./components/verificationBanner";
 import { ScrollProgress } from "./components/motion";
 import { Spinner } from "./components/ui";
@@ -101,6 +102,20 @@ function GuestGuard({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function AnalyticsTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    initAnalytics();
+  }, []);
+
+  useEffect(() => {
+    trackPageView(location.pathname + location.search);
+  }, [location.pathname, location.search]);
+
+  return null;
+}
+
 export default function App() {
   const { ready } = useAuth();
   if (!ready) return <Booting />;
@@ -110,6 +125,7 @@ export default function App() {
       {/* Above <Routes> rather than inside <Shell>, so the bare pages —
           sign-in, sign-up, the password flows — open at the top too. */}
       <ScrollManager />
+      <AnalyticsTracker />
       <Routes>
         {/* Bare pages — accessible only when signed out */}
         <Route
