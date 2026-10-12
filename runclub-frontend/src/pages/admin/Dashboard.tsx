@@ -28,6 +28,7 @@ import { MailerPanel } from "../../components/mailerPanel";
 import { api } from "../../lib/api";
 import { compact, eventDate, inr, isPast } from "../../lib/format";
 import { useFetch } from "../../lib/useFetch";
+import { GA_MEASUREMENT_ID } from "../../lib/analytics";
 
 interface TurnoutRow {
   id: string;
@@ -473,6 +474,39 @@ export function AdminDashboard() {
                 <BarList data={pollBars} emptyLabel="No votes cast yet" />
               )}
             </ChartCard>
+          </div>
+
+          {/* Google Analytics Panel */}
+          <div className="mt-5">
+            <Card className="border-gold/30 bg-surface/90 p-5 sm:p-6 shadow-xl">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <p className="eyebrow text-emerald-400">Google Analytics 4 · Connected</p>
+                  </div>
+                  <h3 className="display mt-1 text-[18px] sm:text-[20px] text-ink">
+                    Website Traffic & Visitor Analytics
+                  </h3>
+                  <p className="mt-1 text-[13px] leading-relaxed text-ink-2 max-w-2xl">
+                    Measurement ID: <span className="font-mono text-gold font-semibold">{GA_MEASUREMENT_ID}</span> · Tracking live visitors on <span className="text-ink font-medium">b2club.in</span>, traffic sources (Instagram, WhatsApp, Direct), pageviews, and ticket booking drop-offs.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <a
+                    href="https://analytics.google.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={buttonClass("gold", "md")}
+                  >
+                    <ChartIcon className="size-4" />
+                    Open Google Analytics
+                    <span className="text-xs">↗</span>
+                  </a>
+                </div>
+              </div>
+            </Card>
           </div>
 
           {/* Turnout per event */}
