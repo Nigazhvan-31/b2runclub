@@ -19,7 +19,6 @@ import { DUR, EASE } from "../lib/motion";
 import { REFUND_ONE_LINER, REFUND_WINDOW_HOURS } from "../lib/policies";
 import { CheckoutDismissed, isMockPayment, openCheckout } from "../lib/razorpay";
 import { downloadQr, extractQrDataUrl } from "../lib/share";
-import { trackBeginCheckout, trackPurchase } from "../lib/analytics";
 import { EventCoverBackdrop } from "./eventCover";
 import type { ClubEvent, GuestDraft, Registration } from "../lib/types";
 import { ClockIcon, DisciplineIcon, DownloadIcon, PinIcon } from "./icons";
@@ -409,11 +408,6 @@ export function RegisterDialog({
       }
 
       setStage("paying");
-      trackBeginCheckout({
-        eventTitle: event.title,
-        amountRupees: res.amount / 100,
-        orderId,
-      });
       const result = await openCheckout({
         keyId: res.razorpay_key_id,
         orderId,
@@ -426,11 +420,6 @@ export function RegisterDialog({
 
       setStage("verifying");
       const verified = await api.verifyPayment(result);
-      trackPurchase({
-        eventTitle: event.title,
-        amountRupees: res.amount / 100,
-        orderId,
-      });
       cheer();
       toast("Payment confirmed — your ticket is live.", "ok");
       onDone(verified.registration);
@@ -442,11 +431,6 @@ export function RegisterDialog({
         try {
           const reconciled = await api.reconcilePayment(held.id);
           if (ticketReady(reconciled.registration.status)) {
-            trackPurchase({
-              eventTitle: event.title,
-              amountRupees: (reconciled.registration.amount_due_paise ?? 0) / 100 || event.price,
-              orderId: reconciled.registration.razorpay_order_id ?? held.id,
-            });
             cheer();
             toast("Payment confirmed — your ticket is live.", "ok");
             onDone(reconciled.registration);

@@ -28,7 +28,6 @@ import { MailerPanel } from "../../components/mailerPanel";
 import { api } from "../../lib/api";
 import { compact, eventDate, inr, isPast } from "../../lib/format";
 import { useFetch } from "../../lib/useFetch";
-import { GA_MEASUREMENT_ID } from "../../lib/analytics";
 
 interface TurnoutRow {
   id: string;
@@ -238,15 +237,6 @@ export function AdminDashboard() {
             <Link to="/admin/founders" className={buttonClass("ghost", "sm")}>
               Founders
             </Link>
-            <a
-              href="https://analytics.google.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={buttonClass("gold", "sm")}
-            >
-              <ChartIcon className="size-3.5" />
-              Google Analytics
-            </a>
           </div>
         }
       />
@@ -282,37 +272,6 @@ export function AdminDashboard() {
             <Link to="/admin/events" className={buttonClass("outline", "md")}>
               Manage events
             </Link>
-          </div>
-        </div>
-      </Card>
-
-      {/* Google Analytics 4 Dashboard Card */}
-      <Card className="mb-6 border-white/10 bg-surface/80 p-5 sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-              <p className="eyebrow text-emerald-400">Google Analytics 4 · Live</p>
-            </div>
-            <h3 className="display mt-1 text-[18px] sm:text-[20px] text-ink">
-              Live Website Visitors & Funnel Analytics
-            </h3>
-            <p className="mt-1 text-[13px] leading-relaxed text-ink-2 max-w-2xl">
-              Tracking Tag: <span className="font-mono text-gold font-medium">{GA_MEASUREMENT_ID}</span>. Tracks live visitors on <span className="text-ink">b2club.in</span>, Instagram/WhatsApp traffic, pageviews, and ticket booking drop-offs.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <a
-              href="https://analytics.google.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={buttonClass("gold", "md")}
-            >
-              <ChartIcon className="size-4" />
-              Open Analytics Dashboard
-              <span className="text-xs">↗</span>
-            </a>
           </div>
         </div>
       </Card>
