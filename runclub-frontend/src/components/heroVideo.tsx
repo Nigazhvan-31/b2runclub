@@ -59,10 +59,36 @@ export function HeroVideo({
   useEffect(() => {
     const el = videoRef.current;
     if (!el || kind !== "file" || calm) return;
-    // Autoplay can still be refused (data saver, low power mode). Not an error
-    // worth surfacing — the first frame stands as a still, and the page's own
-    // background shows through where the clip does not reach.
-    void el.play().catch(() => undefined);
+    el.muted = true;
+    el.defaultMuted = true;
+    el.playsInline = true;
+    el.setAttribute("muted", "");
+    el.setAttribute("playsinline", "");
+    el.setAttribute("webkit-playsinline", "true");
+
+    const startPlay = () => {
+      el.muted = true;
+      void el.play().catch(() => undefined);
+    };
+
+    startPlay();
+
+    // In case battery saver or mobile policy blocks instant autoplay, resume on first interaction
+    const handleGesture = () => {
+      if (el.paused) {
+        startPlay();
+      }
+      window.removeEventListener("touchstart", handleGesture);
+      window.removeEventListener("scroll", handleGesture);
+    };
+
+    window.addEventListener("touchstart", handleGesture, { passive: true });
+    window.addEventListener("scroll", handleGesture, { passive: true });
+
+    return () => {
+      window.removeEventListener("touchstart", handleGesture);
+      window.removeEventListener("scroll", handleGesture);
+    };
   }, [src, kind, calm]);
 
   if (!src || !kind || failed) return null;
@@ -170,8 +196,12 @@ export function HeroVideo({
           loop
           muted
           playsInline
+          {...{ "webkit-playsinline": "true" }}
+          disablePictureInPicture
+          disableRemotePlayback
+          controls={false}
           preload="auto"
-          className="h-full w-full object-cover object-bottom"
+          className="pointer-events-none h-full w-full object-cover object-bottom"
           onLoadedMetadata={(e) => {
             const v = e.currentTarget;
             if (v.videoWidth && v.videoHeight) onAspect?.(v.videoWidth / v.videoHeight);

@@ -10,25 +10,22 @@ import {
   TableToggle,
   type StatusSegment,
 } from "../../components/charts";
-import { ChartIcon, DownloadIcon, SparkIcon, UsersIcon } from "../../components/icons";
+import { ChartIcon, UsersIcon } from "../../components/icons";
 import { Page, PageHeader } from "../../components/layout";
 import { PageScene } from "../../components/scene3d";
 import { AnimatedNumber, ProgressRing, Reveal } from "../../components/motion";
 import {
-  Button,
   buttonClass,
   Card,
   EmptyState,
   ErrorState,
   Skeleton,
-  useToast,
 } from "../../components/ui";
 import { HeroVideoPanel } from "../../components/heroVideoPanel";
 import { MailerPanel } from "../../components/mailerPanel";
 import { api } from "../../lib/api";
 import { compact, eventDate, inr, isPast } from "../../lib/format";
 import { useFetch } from "../../lib/useFetch";
-import { GA_MEASUREMENT_ID } from "../../lib/analytics";
 
 interface TurnoutRow {
   id: string;
@@ -45,7 +42,6 @@ interface TurnoutRow {
 }
 
 export function AdminDashboard() {
-  const toast = useToast();
   const loadFinance = useCallback(() => api.financialOverview(), []);
   const loadEvents = useCallback(() => api.events(), []);
   const loadPolls = useCallback(() => api.polls(), []);
@@ -59,7 +55,6 @@ export function AdminDashboard() {
   const [showTurnoutTable, setShowTurnoutTable] = useState(false);
   const [turnout, setTurnout] = useState<TurnoutRow[] | null>(null);
   const [turnoutError, setTurnoutError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
 
   /**
    * Turnout per event. There is no aggregate endpoint, so this reads each
@@ -122,45 +117,6 @@ export function AdminDashboard() {
       cancelled = true;
     };
   }, [eventsForTurnout]);
-
-  /**
-   * One workbook covering every event, for accounting.
-   *
-   * Built by the server, like every other export. It used to be assembled here
-   * from one request per event, with its columns written out by hand — which
-   * meant thirty requests for one download, and a file whose shape drifted
-   * from the single-event roster it sat beside.
-   */
-  const exportAll = async () => {
-    setExporting(true);
-    try {
-      await api.allRostersWorkbook();
-      toast("All rosters exported.", "ok");
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Export failed", "err");
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const [reconciling, setReconciling] = useState(false);
-  const reconcileAll = async () => {
-    setReconciling(true);
-    try {
-      const res = await api.reconcileAllPayments();
-      if (res.settled && res.settled.length > 0) {
-        toast(`Settled ${res.settled.length} payment(s) from Razorpay!`, "ok");
-        finance.reload();
-        events.reload();
-      } else {
-        toast(`Reconciled against Razorpay: ${res.checked} bookings checked, all up to date.`, "ok");
-      }
-    } catch (err: any) {
-      toast(err?.message || "Reconciliation failed", "err");
-    } finally {
-      setReconciling(false);
-    }
-  };
 
   const f = finance.data;
   const allEvents = events.data ?? [];
@@ -238,44 +194,12 @@ export function AdminDashboard() {
             <Link to="/admin/founders" className={buttonClass("ghost", "sm")}>
               Founders
             </Link>
+            <Link to="/admin/analytics" className={buttonClass("ghost", "sm")}>
+              Analytics
+            </Link>
           </div>
         }
       />
-
-      {/* Organiser Operations Box */}
-      <Card className="mb-6 border-gold/30 bg-gold/[0.04] p-5 sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="eyebrow flex items-center gap-2 text-gold">
-              <span className="size-2 rounded-full bg-gold animate-pulse" />
-              Organiser Operations Box
-            </p>
-            <h3 className="display mt-1 text-[18px] sm:text-[20px] text-ink">
-              Start-Line Check-in & Event Operations
-            </h3>
-            <p className="mt-1 text-[13px] leading-relaxed text-ink-2 max-w-2xl">
-              Scan participant QR tickets at the gate with your camera, admit runners, export rosters for race marshals, or manage club sessions.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <Link to="/scan" className={buttonClass("gold", "md")}>
-              Scan tickets
-            </Link>
-            <Button variant="outline" size="md" loading={exporting} onClick={exportAll}>
-              <DownloadIcon className="size-3.5" />
-              Export rosters
-            </Button>
-            <Button variant="outline" size="md" loading={reconciling} onClick={reconcileAll}>
-              <SparkIcon className="size-3.5" />
-              Reconcile Razorpay
-            </Button>
-            <Link to="/admin/events" className={buttonClass("outline", "md")}>
-              Manage events
-            </Link>
-          </div>
-        </div>
-      </Card>
 
       {loading ? (
         <div className="grid gap-5 lg:grid-cols-3">
@@ -474,39 +398,6 @@ export function AdminDashboard() {
                 <BarList data={pollBars} emptyLabel="No votes cast yet" />
               )}
             </ChartCard>
-          </div>
-
-          {/* Google Analytics Panel */}
-          <div className="mt-5">
-            <Card className="border-gold/30 bg-surface/90 p-5 sm:p-6 shadow-xl">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <p className="eyebrow text-emerald-400">Google Analytics 4 · Connected</p>
-                  </div>
-                  <h3 className="display mt-1 text-[18px] sm:text-[20px] text-ink">
-                    Website Traffic & Visitor Analytics
-                  </h3>
-                  <p className="mt-1 text-[13px] leading-relaxed text-ink-2 max-w-2xl">
-                    Measurement ID: <span className="font-mono text-gold font-semibold">{GA_MEASUREMENT_ID}</span> · Tracking live visitors on <span className="text-ink font-medium">b2club.in</span>, traffic sources (Instagram, WhatsApp, Direct), pageviews, and ticket booking drop-offs.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2.5 shrink-0">
-                  <a
-                    href="https://analytics.google.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={buttonClass("gold", "md")}
-                  >
-                    <ChartIcon className="size-4" />
-                    Open Google Analytics
-                    <span className="text-xs">↗</span>
-                  </a>
-                </div>
-              </div>
-            </Card>
           </div>
 
           {/* Turnout per event */}

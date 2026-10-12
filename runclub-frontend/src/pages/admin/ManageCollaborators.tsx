@@ -75,8 +75,11 @@ export function ManageCollaborators() {
             <Link to="/admin" className={buttonClass("ghost", "md")}>
               Dashboard
             </Link>
-            <Link to="/" className={buttonClass("ghost", "md")}>
-              View scroller
+            <Link to="/admin/founders" className={buttonClass("ghost", "md")}>
+              Founders
+            </Link>
+            <Link to="/admin/analytics" className={buttonClass("ghost", "md")}>
+              Analytics
             </Link>
             <Button onClick={() => setAdding(true)}>
               <PlusIcon className="size-3.5" />

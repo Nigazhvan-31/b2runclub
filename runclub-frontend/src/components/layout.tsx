@@ -372,9 +372,11 @@ function navItems(isAdmin: boolean, canRegister: boolean, isClubMember: boolean)
         active: (path) =>
           path === "/admin" ||
           (path.startsWith("/admin/") &&
+            !path.startsWith("/admin/analytics") &&
             !path.startsWith("/admin/members") &&
             !path.startsWith("/admin/database")),
       },
+      { to: "/admin/analytics", label: "Analytics" },
       { to: "/admin/members", label: "Members" },
       { to: "/admin/database", label: "Database" },
     );

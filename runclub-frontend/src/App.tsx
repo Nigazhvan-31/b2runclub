@@ -13,6 +13,7 @@ import { AdminDashboard } from "./pages/admin/Dashboard";
 import { ManageEvents } from "./pages/admin/ManageEvents";
 import { ManageCollaborators } from "./pages/admin/ManageCollaborators";
 import { ManageFounders } from "./pages/admin/ManageFounders";
+import { Analytics } from "./pages/admin/Analytics";
 import { DatabaseAdmin } from "./pages/admin/Database";
 import { ManageMembers } from "./pages/admin/ManageMembers";
 import { ManagePolls } from "./pages/admin/ManagePolls";
@@ -285,6 +286,14 @@ export default function App() {
             element={
               <Guard roles={["ADMIN"]}>
                 <ManageFounders />
+              </Guard>
+            }
+          />
+          <Route
+            path="/admin/analytics"
+            element={
+              <Guard roles={["ADMIN"]}>
+                <Analytics />
               </Guard>
             }
           />

@@ -86,6 +86,9 @@ export function ManageFounders() {
             <Link to="/admin/collaborators" className={buttonClass("ghost", "md")}>
               Collaborators
             </Link>
+            <Link to="/admin/analytics" className={buttonClass("ghost", "md")}>
+              Analytics
+            </Link>
             <Button onClick={() => setAdding(true)}>
               <PlusIcon className="size-3.5" />
               Add founder
