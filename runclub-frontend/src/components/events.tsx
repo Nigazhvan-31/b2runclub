@@ -778,8 +778,11 @@ export function RegisterDialog({
           food without either of them being known to this component.
         */}
         {questions.length > 0 && (
-          <div className="rounded-xl border border-white/8 bg-surface-2/40 p-4">
-            <p className="eyebrow text-ink-2">A few questions</p>
+          <div className="rounded-xl border border-gold/35 bg-gold/[0.04] p-4 sm:p-5">
+            <div className="flex items-center gap-2">
+              <span className="size-2 rounded-full bg-gold animate-pulse" />
+              <p className="eyebrow text-gold font-bold">Preferences & Details</p>
+            </div>
             <p className="mt-1 text-[12px] text-ink-3">
               The organiser needs these to plan the session.
             </p>
@@ -822,6 +825,12 @@ export function RegisterDialog({
                 </Field>
               ))}
             </div>
+
+            {partySize > 1 && (
+              <p className="mt-3 text-[11.5px] leading-relaxed text-ink-3 border-t border-white/6 pt-2.5">
+                Bringing guests with mixed food preferences? Choose your primary group preference above, or inform our team at check-in on the day.
+              </p>
+            )}
           </div>
         )}
 

@@ -465,7 +465,11 @@ export function RadioGroup({
             >
               {selected && <span className="size-2 rounded-full bg-gold" />}
             </span>
-            {option}
+            {option.toLowerCase() === "veg"
+              ? "🌱 Veg"
+              : option.toLowerCase() === "non veg" || option.toLowerCase() === "non-veg"
+                ? "🍗 Non-Veg"
+                : option}
           </button>
         );
       })}

@@ -394,6 +394,7 @@ router.get("/", async (req, res) => {
         if (userRole === "ADMIN") {
             // Admins see all events (DRAFT, PUBLISHED, ARCHIVED)
             events = await prisma_1.default.event.findMany({
+                include: { questions: { orderBy: { position: "asc" } } },
                 orderBy: { date_time: "asc" },
             });
         }
@@ -401,6 +402,7 @@ router.get("/", async (req, res) => {
             // Members, Volunteers, Visitors see only PUBLISHED (or ARCHIVED past events, but let's filters PUBLISHED for active)
             events = await prisma_1.default.event.findMany({
                 where: { status: "PUBLISHED" },
+                include: { questions: { orderBy: { position: "asc" } } },
                 orderBy: { date_time: "asc" },
             });
         }
@@ -444,9 +446,11 @@ router.get("/", async (req, res) => {
            cannot disagree about it, which is the failure mode a duplicated
            limit eventually always has. */
         events.map((e) => {
+            const questions = (e.questions ?? []).map(questionnaire_1.toPublicQuestion);
             if (e.capacity === null) {
                 return {
                     ...e,
+                    questions,
                     taken: null,
                     spots_left: null,
                     full: false,
@@ -457,6 +461,7 @@ router.get("/", async (req, res) => {
             const taken = counts.get(e.id) ?? 0;
             return {
                 ...e,
+                questions,
                 taken,
                 spots_left: Math.max(0, e.capacity - taken),
                 full: taken >= e.capacity,

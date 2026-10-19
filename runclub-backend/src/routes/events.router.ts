@@ -424,12 +424,14 @@ router.get("/", async (req: AuthRequest, res: Response): Promise<void> => {
         if (userRole === "ADMIN") {
             // Admins see all events (DRAFT, PUBLISHED, ARCHIVED)
             events = await prisma.event.findMany({
+                include: { questions: { orderBy: { position: "asc" } } },
                 orderBy: { date_time: "asc" },
             });
         } else {
             // Members, Volunteers, Visitors see only PUBLISHED (or ARCHIVED past events, but let's filters PUBLISHED for active)
             events = await prisma.event.findMany({
                 where: { status: "PUBLISHED" },
+                include: { questions: { orderBy: { position: "asc" } } },
                 orderBy: { date_time: "asc" },
             });
         }
@@ -475,10 +477,12 @@ router.get("/", async (req: AuthRequest, res: Response): Promise<void> => {
                in a second constant on the client. The form and the server then
                cannot disagree about it, which is the failure mode a duplicated
                limit eventually always has. */
-            events.map((e) => {
+            events.map((e: any) => {
+                const questions = (e.questions ?? []).map(toPublicQuestion);
                 if (e.capacity === null) {
                     return {
                         ...e,
+                        questions,
                         taken: null,
                         spots_left: null,
                         full: false,
@@ -489,6 +493,7 @@ router.get("/", async (req: AuthRequest, res: Response): Promise<void> => {
                 const taken = counts.get(e.id) ?? 0;
                 return {
                     ...e,
+                    questions,
                     taken,
                     spots_left: Math.max(0, e.capacity - taken),
                     full: taken >= e.capacity,

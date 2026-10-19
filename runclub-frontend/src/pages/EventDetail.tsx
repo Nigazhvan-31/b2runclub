@@ -165,6 +165,14 @@ export function EventDetail() {
           },
         ]
       : []),
+    ...(event.questions && event.questions.length > 0
+      ? [
+          {
+            label: "Food & Preferences",
+            value: "Veg & Non-Veg options available",
+          },
+        ]
+      : []),
   ];
 
   return (
