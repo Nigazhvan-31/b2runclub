@@ -243,6 +243,10 @@ export interface EventRegistrationRow {
   created_at?: string;
   /** Razorpay order id, present when payment is required. Used to reconcile stuck PENDING registrations. */
   razorpay_order_id?: string | null;
+  /** Answers to event questionnaire. */
+  answers?: { question_id: string; prompt: string; answer: string }[];
+  /** Dedicated food preference ("Veg", "Non-Veg", etc.) extracted from answers if present. */
+  food_preference?: string | null;
 }
 
 export interface Author {
@@ -380,6 +384,7 @@ export interface RosterRow {
   waiver_signed: string;
   status: PaymentStatus;
   payment_id: string;
+  food_preference?: string | null;
 }
 
 /* ── Gallery, About and Collaborators ───────────────────────── */

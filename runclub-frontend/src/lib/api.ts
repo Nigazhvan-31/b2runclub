@@ -839,6 +839,7 @@ export const api = {
       waiver_signed: r.waiver_signed ? "Yes" : "No",
       status: r.status,
       payment_id: r.payment_id ?? "",
+      food_preference: r.food_preference ?? null,
     }));
   },
 

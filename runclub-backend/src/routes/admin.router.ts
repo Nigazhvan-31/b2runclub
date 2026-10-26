@@ -341,6 +341,11 @@ router.get("/events/:id/registrations", requireRole(["ADMIN"]), async (req: Auth
                 // able to show who a row actually covers and which of them
                 // have arrived.
                 guests: { orderBy: [{ is_booker: "desc" }, { created_at: "asc" }] },
+                answers: {
+                    include: {
+                        question: { select: { id: true, prompt: true, kind: true } },
+                    },
+                },
             },
             orderBy: { user: { name: "asc" } },
         }) as any;
@@ -387,6 +392,23 @@ router.get("/events/:id/registrations", requireRole(["ADMIN"]), async (req: Auth
                 party_size: (r.guests ?? []).length || 1,
                 amount_due_paise: r.amount_due_paise,
                 razorpay_order_id: r.razorpay_order_id ?? null,
+                answers: (r.answers ?? []).map((a: any) => ({
+                    question_id: a.question_id,
+                    prompt: a.question?.prompt ?? "",
+                    answer: a.answer,
+                })),
+                food_preference: (() => {
+                    const ans = (r.answers ?? []).find(
+                        (a: any) =>
+                            /food|diet|preference|meal/i.test(a.question?.prompt ?? "") ||
+                            /^(veg|non[\s-]?veg|vegetarian|non[\s-]?vegetarian)$/i.test(a.answer ?? ""),
+                    );
+                    if (!ans) return null;
+                    const val = (ans.answer ?? "").trim();
+                    if (/^non[\s-]?veg/i.test(val) || /non[\s-]?vegetarian/i.test(val)) return "Non-Veg";
+                    if (/^veg/i.test(val) || /^vegetarian/i.test(val)) return "Veg";
+                    return val || null;
+                })(),
             }))
         );
     } catch (error: any) {

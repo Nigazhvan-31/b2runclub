@@ -368,29 +368,54 @@ function RosterModal({
       ) : rows.length === 0 ? (
         <EmptyState title="Nobody registered yet" body="Registrations will appear here." />
       ) : (
-        <>
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-[13px] text-ink-2">
-              <span className="font-semibold text-ink">{rows.length}</span> registered ·{" "}
-              <span className="font-semibold text-ink">{paid}</span> ticket-ready
-            </p>
-            <Button size="sm" variant="outline" onClick={exportRoster}>
-              Export CSV
-            </Button>
-          </div>
+        (() => {
+          const hasFood = rows.some((r) => Boolean(r.food_preference));
+          const vegCount = rows.filter((r) => r.food_preference?.toLowerCase() === "veg").length;
+          const nonVegCount = rows.filter((r) => r.food_preference && r.food_preference.toLowerCase().includes("non")).length;
 
-          <div className="max-h-[46vh] overflow-y-auto">
-            <DataTable
-              columns={["Name", "Role", "Waiver", "Payment"]}
-              rows={rows.map((r) => [
-                `${r.name} · ${r.email}`,
-                r.role_at_event,
-                r.waiver_signed === "true" || r.waiver_signed === "Yes" ? "Signed" : "—",
-                PAYMENT_META[r.status]?.label ?? r.status,
-              ])}
-            />
-          </div>
-        </>
+          return (
+            <>
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-[13px] text-ink-2">
+                  <span className="font-semibold text-ink">{rows.length}</span> registered ·{" "}
+                  <span className="font-semibold text-ink">{paid}</span> ticket-ready
+                  {hasFood && (
+                    <>
+                      {" "}· <span className="font-semibold text-ink">🌱 {vegCount}</span> Veg ·{" "}
+                      <span className="font-semibold text-ink">🍗 {nonVegCount}</span> Non-Veg
+                    </>
+                  )}
+                </p>
+                <Button size="sm" variant="outline" onClick={exportRoster}>
+                  Export CSV
+                </Button>
+              </div>
+
+              <div className="max-h-[46vh] overflow-y-auto">
+                <DataTable
+                  columns={hasFood ? ["Name", "Role", "Food", "Waiver", "Payment"] : ["Name", "Role", "Waiver", "Payment"]}
+                  rows={rows.map((r) => [
+                    `${r.name} · ${r.email}`,
+                    r.role_at_event,
+                    ...(hasFood
+                      ? [
+                          r.food_preference
+                            ? r.food_preference.toLowerCase().includes("non")
+                              ? "🍗 Non-Veg"
+                              : r.food_preference.toLowerCase() === "veg"
+                                ? "🌱 Veg"
+                                : r.food_preference
+                            : "—",
+                        ]
+                      : []),
+                    r.waiver_signed === "true" || r.waiver_signed === "Yes" ? "Signed" : "—",
+                    PAYMENT_META[r.status]?.label ?? r.status,
+                  ])}
+                />
+              </div>
+            </>
+          );
+        })()
       )}
     </Modal>
   );

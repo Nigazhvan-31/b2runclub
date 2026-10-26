@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import { bookingClosed, cn, inr, PAYMENT_META, ROLE_META } from "../lib/format";
 import type { ClubEvent, EventRegistrationRow, PartyMember } from "../lib/types";
 import { useFetch } from "../lib/useFetch";
-import { LockIcon, SearchIcon, UsersIcon } from "./icons";
+import { DownloadIcon, LockIcon, SearchIcon, UsersIcon } from "./icons";
 import {
   Avatar,
   Badge,
@@ -44,21 +44,42 @@ export function EventRoster({ event }: { event: ClubEvent }) {
   const [statusBusy, setStatusBusy] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [guestBusy, setGuestBusy] = useState<string | null>(null);
+  const [foodFilter, setFoodFilter] = useState<"ALL" | "VEG" | "NON_VEG">("ALL");
+  const [exporting, setExporting] = useState(false);
+
+  const exportRoster = async () => {
+    setExporting(true);
+    try {
+      await api.rosterWorkbook(event.id);
+      toast("Roster workbook downloaded.", "ok");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Export failed", "err");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const rows = data ?? [];
 
   const visible = useMemo(() => {
+    let list = rows;
+    if (foodFilter === "VEG") {
+      list = list.filter((r) => r.food_preference?.toLowerCase() === "veg");
+    } else if (foodFilter === "NON_VEG") {
+      list = list.filter((r) => r.food_preference && r.food_preference.toLowerCase().includes("non"));
+    }
+
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    // Guest names are searchable too: someone looking for "Priya" is looking
-    // for the booking she is on, which is filed under whoever paid for it.
-    return rows.filter(
+    if (!q) return list;
+    // Guest names and food preferences are searchable too.
+    return list.filter(
       (r) =>
         r.name.toLowerCase().includes(q) ||
         r.email.toLowerCase().includes(q) ||
+        (r.food_preference && r.food_preference.toLowerCase().includes(q)) ||
         (r.guests ?? []).some((g) => g.name.toLowerCase().includes(q)),
     );
-  }, [rows, query]);
+  }, [rows, query, foodFilter]);
 
   /*
    * Counted in people, not bookings. One member booking for their family is a
@@ -72,6 +93,13 @@ export function EventRoster({ event }: { event: ClubEvent }) {
   const ticketed = live
     .filter((r) => r.status === "PAID" || r.status === "FREE")
     .reduce((n, r) => n + seats(r), 0);
+  const vegCount = live
+    .filter((r) => r.food_preference?.toLowerCase() === "veg")
+    .reduce((n, r) => n + seats(r), 0);
+  const nonVegCount = live
+    .filter((r) => r.food_preference && r.food_preference.toLowerCase().includes("non"))
+    .reduce((n, r) => n + seats(r), 0);
+  const hasFoodPreferences = vegCount > 0 || nonVegCount > 0;
   const checkedIn = live.reduce(
     (n, r) =>
       n +
@@ -236,12 +264,27 @@ export function EventRoster({ event }: { event: ClubEvent }) {
             {loading
               ? "Loading the roster…"
               : `${attending} attending · ${ticketed} ticket-ready${
-                  checkedIn > 0 ? ` · ${checkedIn} checked in` : ""
-                }${blocked > 0 ? ` · ${blocked} blocked` : ""}`}
+                  hasFoodPreferences ? ` · 🌱 ${vegCount} Veg · 🍗 ${nonVegCount} Non-Veg` : ""
+                }${checkedIn > 0 ? ` · ${checkedIn} checked in` : ""}${
+                  blocked > 0 ? ` · ${blocked} blocked` : ""
+                }`}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Export roster to Excel with food preferences & phone numbers */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportRoster}
+            disabled={exporting || rows.length === 0}
+            className="h-9 gap-1.5 text-[12px]"
+            title="Download Excel workbook with full roster, food preferences, and phone numbers"
+          >
+            <DownloadIcon className="size-3.5" />
+            {exporting ? "Exporting…" : "Export"}
+          </Button>
+
           {/* Sync payments — reconciles PENDING registrations against Razorpay */}
           {rows.some((r) => r.status === "PENDING" && !r.blocked_at) && (
             <Button
@@ -271,6 +314,49 @@ export function EventRoster({ event }: { event: ClubEvent }) {
           )}
         </div>
       </div>
+
+      {/* Quick Food Preference Filter Pills */}
+      {hasFoodPreferences && !loading && (
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-white/5 bg-surface-2/40 px-5 py-2 text-[12px]">
+          <span className="mr-1 text-ink-3 font-medium">Filter by food:</span>
+          <button
+            type="button"
+            onClick={() => setFoodFilter("ALL")}
+            className={cn(
+              "rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer",
+              foodFilter === "ALL"
+                ? "bg-white/10 text-ink shadow-sm"
+                : "text-ink-3 hover:bg-white/5 hover:text-ink",
+            )}
+          >
+            All ({attending})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFoodFilter("VEG")}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer",
+              foodFilter === "VEG"
+                ? "bg-[color:var(--color-paid)]/20 text-[color:var(--color-paid)] border border-[color:var(--color-paid)]/40"
+                : "text-ink-3 hover:bg-white/5 hover:text-ink",
+            )}
+          >
+            🌱 Veg ({vegCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFoodFilter("NON_VEG")}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-medium transition-colors cursor-pointer",
+              foodFilter === "NON_VEG"
+                ? "bg-[color:var(--color-gold)]/20 text-[color:var(--color-gold)] border border-[color:var(--color-gold)]/40"
+                : "text-ink-3 hover:bg-white/5 hover:text-ink",
+            )}
+          >
+            🍗 Non-Veg ({nonVegCount})
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-3 p-5">
@@ -356,6 +442,31 @@ export function EventRoster({ event }: { event: ClubEvent }) {
                     ) : (
                       <Badge color={meta.color} icon={meta.icon}>
                         {meta.label}
+                      </Badge>
+                    )}
+
+                    {r.food_preference && (
+                      <Badge
+                        color={
+                          r.food_preference.toLowerCase().includes("non")
+                            ? "var(--color-gold)"
+                            : r.food_preference.toLowerCase() === "veg"
+                              ? "var(--color-paid)"
+                              : "var(--color-ink-2)"
+                        }
+                        icon={
+                          r.food_preference.toLowerCase().includes("non")
+                            ? "🍗"
+                            : r.food_preference.toLowerCase() === "veg"
+                              ? "🌱"
+                              : undefined
+                        }
+                      >
+                        {r.food_preference.toLowerCase().includes("non")
+                          ? "Non-Veg"
+                          : r.food_preference.toLowerCase() === "veg"
+                            ? "Veg"
+                            : r.food_preference}
                       </Badge>
                     )}
 
@@ -561,6 +672,15 @@ export function EventRoster({ event }: { event: ClubEvent }) {
                                     ? "child"
                                     : "guest"}
                               </span>
+                              {r.food_preference && (
+                                <span className="ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold border border-white/10 text-ink-2 bg-white/5">
+                                  {r.food_preference.toLowerCase().includes("non")
+                                    ? "🍗 Non-Veg"
+                                    : r.food_preference.toLowerCase() === "veg"
+                                      ? "🌱 Veg"
+                                      : r.food_preference}
+                                </span>
+                              )}
                               {/* No number here: the row above lists every
                                   one of them already, and printing each twice
                                   in the same block is noise. This panel is for
