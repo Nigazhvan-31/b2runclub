@@ -310,10 +310,13 @@ export function BranchSwitcher() {
                     : "text-ink-2 hover:bg-white/6 hover:text-ink",
                 )}
               >
-                <span className="flex items-center gap-2">
-                  <span>🏛️</span>
-                  <span>Madurai Chapter</span>
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🏛️</span>
+                  <div>
+                    <div className="font-semibold">Madurai Chapter</div>
+                    <div className="text-[10px] text-ink-3">Active Sessions</div>
+                  </div>
+                </div>
                 {branch === "MADURAI" && <span className="text-gold font-bold">✓</span>}
               </button>
 
@@ -330,10 +333,13 @@ export function BranchSwitcher() {
                     : "text-ink-2 hover:bg-white/6 hover:text-ink",
                 )}
               >
-                <span className="flex items-center gap-2">
-                  <span>🌊</span>
-                  <span>Chennai Chapter</span>
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🌊</span>
+                  <div>
+                    <div className="font-semibold">Chennai Chapter</div>
+                    <div className="text-[10px] text-sky-400/80">Launching Soon</div>
+                  </div>
+                </div>
                 {branch === "CHENNAI" && <span className="text-gold font-bold">✓</span>}
               </button>
             </div>

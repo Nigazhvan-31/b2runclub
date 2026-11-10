@@ -1,3 +1,4 @@
+import { getEventBranch } from "../lib/branch";
 import { cn, eventTime, fullDate } from "../lib/format";
 import type { ClubEvent } from "../lib/types";
 import { CalendarIcon, PinIcon } from "./icons";
@@ -93,6 +94,7 @@ export function EventMeta({
 }) {
   const text = size === "sm" ? "text-[12.5px]" : "text-[13.5px]";
   const icon = size === "sm" ? "size-3" : "size-3.5";
+  const branchName = getEventBranch(event) === "CHENNAI" ? "Chennai" : "Madurai";
 
   return (
     <div className={cn("flex flex-wrap items-center gap-x-5 gap-y-1.5", text, "text-ink-2", className)}>
@@ -104,6 +106,8 @@ export function EventMeta({
       </span>
       <span className="inline-flex min-w-0 items-center gap-1.5">
         <PinIcon className={cn(icon, "shrink-0 text-gold")} />
+        <span className="font-semibold text-gold">{branchName}</span>
+        <span>·</span>
         <span className="truncate">{event.location}</span>
       </span>
     </div>

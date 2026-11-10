@@ -226,6 +226,31 @@ export function Calendar() {
         </button>
       </div>
 
+      {branch === "CHENNAI" && (
+        <div className="mb-6 rounded-2xl border border-sky-500/25 bg-sky-500/10 p-5 backdrop-blur-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <span className="text-2xl shrink-0">🌊</span>
+              <div>
+                <h3 className="font-semibold text-sky-200 text-[15px]">
+                  Chennai Chapter Calendar Launching Soon
+                </h3>
+                <p className="mt-1 text-[13px] text-sky-200/80 leading-relaxed">
+                  Zero sessions are scheduled for Chennai right now while we prepare sunrise coastal runs at Marina Beach &amp; Besant Nagar. Looking for active runs? Check out the Madurai Chapter calendar!
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setBranch("MADURAI")}
+              className={cn(buttonClass("gold", "sm"), "shrink-0 self-start sm:self-center cursor-pointer")}
+            >
+              <span>🏛️ Switch to Madurai Chapter →</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <Card className="p-6">
           <Skeleton className="h-6 w-40" />

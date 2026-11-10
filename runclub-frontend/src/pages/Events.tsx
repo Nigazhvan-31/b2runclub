@@ -274,19 +274,57 @@ export function Events() {
           <ErrorState message={error} onRetry={reload} />
         </Card>
       ) : visible.length === 0 ? (
-        <Card>
-          <EmptyState
-            icon={<span aria-hidden>▲</span>}
-            title={query || type !== "ALL" ? "Nothing matches that" : "No events here yet"}
-            body={
-              query || type !== "ALL"
-                ? "Try a different search or clear the filters."
-                : filter === "upcoming"
-                  ? "Nothing on the board right now. Check back soon."
-                  : "No past events on record."
-            }
-          />
-        </Card>
+        branch === "CHENNAI" && !query && type === "ALL" ? (
+          <Card className="relative overflow-hidden p-8 sm:p-12 text-center border-sky-500/25 bg-gradient-to-b from-sky-500/10 via-surface-2/70 to-surface-2">
+            <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-sky-500/15 text-3xl mb-4 border border-sky-500/30 shadow-inner">
+              🌊
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-sky-500/15 text-sky-300 border border-sky-500/30 mb-3">
+              Chennai Chapter
+            </div>
+            <h3 className="display text-2xl font-bold text-ink sm:text-3xl">
+              Chennai Chapter Runs Launching Soon!
+            </h3>
+            <p className="mt-3 mx-auto max-w-lg text-[14px] text-ink-2 leading-relaxed">
+              We are gearing up for our coastal runs in Chennai! Sunrise weekend sessions at Marina Beach promenade and Besant Nagar are currently being organized. No events have been scheduled for Chennai yet.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setBranch("MADURAI")}
+                className={buttonClass("gold", "lg", "cursor-pointer shadow-lg")}
+              >
+                <span>🏛️ View Madurai Chapter Runs (8 Active Runs) →</span>
+              </button>
+            </div>
+            <p className="mt-5 text-xs text-ink-3">
+              Are you in Chennai? Stay tuned — announcements drop on our Instagram{" "}
+              <a
+                href="https://instagram.com/b2runclub"
+                target="_blank"
+                rel="noreferrer"
+                className="text-gold underline underline-offset-2 hover:text-gold-light"
+              >
+                @b2runclub
+              </a>
+              !
+            </p>
+          </Card>
+        ) : (
+          <Card>
+            <EmptyState
+              icon={<span aria-hidden>▲</span>}
+              title={query || type !== "ALL" ? "Nothing matches that" : "No events here yet"}
+              body={
+                query || type !== "ALL"
+                  ? "Try a different search or clear the filters."
+                  : filter === "upcoming"
+                    ? "Nothing on the board right now. Check back soon."
+                    : "No past events on record."
+              }
+            />
+          </Card>
+        )
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visible.map((e, i) => (

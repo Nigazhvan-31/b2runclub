@@ -26,6 +26,7 @@ import {
 } from "../components/ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { getEventBranch } from "../lib/branch";
 import {
   countdown,
   eventTime,
@@ -148,8 +149,13 @@ export function EventDetail() {
   /* Normalised once: the hero, the terrain backdrop, the badge block and the
      meta row all switch on whether there is a cover, and they have to agree. */
   const cover = coverUrl(event.cover_url);
+  const eventBranch = getEventBranch(event);
 
   const facts = [
+    {
+      label: "Chapter",
+      value: eventBranch === "CHENNAI" ? "🌊 Chennai Chapter" : "🏛️ Madurai Chapter",
+    },
     { label: "Date", value: fullDate(event.date_time) },
     { label: "Start time", value: eventTime(event.date_time) },
     { label: "Location", value: event.location },
@@ -206,6 +212,9 @@ export function EventDetail() {
                   <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-gold">
                     {event.type}
                   </span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/40 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-ink backdrop-blur-md">
+                  <span>{eventBranch === "CHENNAI" ? "🌊 Chennai Chapter" : "🏛️ Madurai Chapter"}</span>
                 </span>
                 {isAdmin && event.status !== "PUBLISHED" && (
                   <Badge color={EVENT_STATUS_TINT[event.status]}>{event.status}</Badge>
@@ -265,6 +274,9 @@ export function EventDetail() {
                   <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-gold">
                     {event.type}
                   </span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/6 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-ink">
+                  <span>{eventBranch === "CHENNAI" ? "🌊 Chennai Chapter" : "🏛️ Madurai Chapter"}</span>
                 </span>
 
                 {isAdmin && event.status !== "PUBLISHED" && (

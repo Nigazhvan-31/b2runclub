@@ -72,13 +72,13 @@ export function BranchGatewayModal() {
                 <span className="text-3xl">🏛️</span>
                 <span
                   className={cn(
-                    "rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider",
+                    "rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider",
                     branch === "MADURAI"
                       ? "bg-gold text-[color:var(--color-gold-ink)] font-bold"
-                      : "bg-white/10 text-ink-3 group-hover:text-ink-2",
+                      : "bg-gold/15 text-gold border border-gold/30",
                   )}
                 >
-                  {branch === "MADURAI" ? "Active" : "Madurai"}
+                  {branch === "MADURAI" ? "Selected (Active Runs)" : "Active Runs"}
                 </span>
               </div>
 
@@ -86,7 +86,7 @@ export function BranchGatewayModal() {
                 Madurai Chapter
               </h3>
               <p className="text-[11.5px] font-medium uppercase tracking-wider text-gold/80">
-                Temple City Runners
+                Temple City Runners · Active Sessions
               </p>
 
               <p className="mt-2.5 text-[12.5px] leading-relaxed text-ink-3 group-hover:text-ink-2">
@@ -108,37 +108,36 @@ export function BranchGatewayModal() {
               className={cn(
                 "group relative cursor-pointer rounded-xl border p-5 transition-all",
                 branch === "CHENNAI"
-                  ? "border-gold bg-gold/5 shadow-[0_0_24px_rgba(233,185,73,0.12)]"
-                  : "border-white/10 bg-surface-2 hover:border-gold/50 hover:bg-white/[0.03]",
+                  ? "border-sky-500 bg-sky-500/10 shadow-[0_0_24px_rgba(56,189,248,0.12)]"
+                  : "border-white/10 bg-surface-2 hover:border-sky-500/50 hover:bg-white/[0.03]",
               )}
             >
               <div className="flex items-start justify-between">
                 <span className="text-3xl">🌊</span>
                 <span
                   className={cn(
-                    "rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider",
+                    "rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider",
                     branch === "CHENNAI"
-                      ? "bg-gold text-[color:var(--color-gold-ink)] font-bold"
-                      : "bg-white/10 text-ink-3 group-hover:text-ink-2",
+                      ? "bg-sky-400 text-stone-950 font-bold"
+                      : "bg-sky-500/15 text-sky-300 border border-sky-500/30",
                   )}
                 >
-                  {branch === "CHENNAI" ? "Active" : "Chennai"}
+                  {branch === "CHENNAI" ? "Selected (Launching Soon)" : "Launching Soon"}
                 </span>
               </div>
 
-              <h3 className="mt-4 text-lg font-bold text-ink group-hover:text-gold transition-colors">
+              <h3 className="mt-4 text-lg font-bold text-ink group-hover:text-sky-300 transition-colors">
                 Chennai Chapter
               </h3>
-              <p className="text-[11.5px] font-medium uppercase tracking-wider text-gold/80">
-                Coastal City Runners
+              <p className="text-[11.5px] font-medium uppercase tracking-wider text-sky-400/80">
+                Coastal City Runners · Launching Soon
               </p>
 
               <p className="mt-2.5 text-[12.5px] leading-relaxed text-ink-3 group-hover:text-ink-2">
-                Weekend sunrise runs along Marina Beach promenade, Besant Nagar coastal miles,
-                and post-run networking filter coffee.
+                Weekend sunrise runs along Marina Beach promenade &amp; Besant Nagar coastal miles are launching soon. Pick Chennai to preview chapter info.
               </p>
 
-              <div className="mt-5 flex items-center gap-1.5 text-[13px] font-semibold text-gold">
+              <div className="mt-5 flex items-center gap-1.5 text-[13px] font-semibold text-sky-400">
                 <span>Select Chennai</span>
                 <span className="transition-transform group-hover:translate-x-1">→</span>
               </div>
