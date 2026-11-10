@@ -368,6 +368,7 @@ router.post("/", (0, auth_1.requireRole)(["ADMIN"]), async (req, res) => {
                 party_discount: partyDiscount,
                 discount_min_party: minParty ?? null,
                 hold_minutes: holdMinutes ?? null,
+                branch: req.body?.branch ? String(req.body.branch).toUpperCase() : (/chennai/i.test(location) ? "CHENNAI" : "MADURAI"),
             },
         });
         const offsets = parseOffsets(req.body.reminder_offsets);
@@ -447,9 +448,11 @@ router.get("/", async (req, res) => {
            limit eventually always has. */
         events.map((e) => {
             const questions = (e.questions ?? []).map(questionnaire_1.toPublicQuestion);
+            const branch = e.branch || (/chennai|marina|besant/i.test(e.location) ? "CHENNAI" : "MADURAI");
             if (e.capacity === null) {
                 return {
                     ...e,
+                    branch,
                     questions,
                     taken: null,
                     spots_left: null,
@@ -461,6 +464,7 @@ router.get("/", async (req, res) => {
             const taken = counts.get(e.id) ?? 0;
             return {
                 ...e,
+                branch,
                 questions,
                 taken,
                 spots_left: Math.max(0, e.capacity - taken),
@@ -663,6 +667,9 @@ router.put("/:id", (0, auth_1.requireRole)(["ADMIN"]), async (req, res) => {
         // create route above, deliberately.
         if (cover_url !== undefined) {
             dataToUpdate.cover_url = typeof cover_url === "string" ? cover_url.trim() || null : null;
+        }
+        if (req.body?.branch !== undefined) {
+            dataToUpdate.branch = String(req.body.branch).toUpperCase();
         }
         /* Keyed on the toggle rather than either field, because the two move
            together: turning children off has to clear the price, which an

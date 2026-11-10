@@ -7,6 +7,7 @@ import { PageScene } from "../components/scene3d";
 import { Button, buttonClass, Field, Input, PasswordInput, Spinner, useToast } from "../components/ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useBranch } from "../lib/branch";
 import { useFetch } from "../lib/useFetch";
 
 /**
@@ -65,6 +66,7 @@ function AuthLayout({ children, aside }: { children: ReactNode; aside: ReactNode
 
 export function Login() {
   const { login, user, ready } = useAuth();
+  const { setShowGateway } = useBranch();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -87,6 +89,9 @@ export function Login() {
     try {
       const user = await login(creds?.email ?? email, creds?.password ?? password);
       toast(`Welcome back, ${user.name.split(" ")[0]}.`, "ok");
+      if (user.role !== "ADMIN") {
+        setShowGateway(true);
+      }
       navigate(user.role === "ADMIN" ? "/admin" : from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed");

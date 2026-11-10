@@ -19,6 +19,7 @@ model User {
   password_hash String
   name          String
   role          String   @default("MEMBER")
+  branch        String   @default("MADURAI")
   created_at    DateTime @default(now())
   emergency_contact String?
 
@@ -259,6 +260,7 @@ model Event {
   location    String
   price       Float
   status      String @default("DRAFT")
+  branch      String @default("MADURAI")
 
   /// Whether children may be brought to this session at all. Off by default, so
   /// an existing event does not silently start accepting them.

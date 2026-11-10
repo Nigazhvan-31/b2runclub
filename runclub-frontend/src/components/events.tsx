@@ -20,6 +20,7 @@ import { REFUND_ONE_LINER, REFUND_WINDOW_HOURS } from "../lib/policies";
 import { CheckoutDismissed, isMockPayment, openCheckout } from "../lib/razorpay";
 import { downloadQr, extractQrDataUrl } from "../lib/share";
 import { trackBeginCheckout, trackPurchase } from "../lib/analytics";
+import { getEventBranch } from "../lib/branch";
 import { EventCoverBackdrop } from "./eventCover";
 import type { ClubEvent, GuestDraft, Registration } from "../lib/types";
 import { ClockIcon, DisciplineIcon, DownloadIcon, PinIcon } from "./icons";
@@ -145,8 +146,12 @@ export function EventCard({
                   {event.title}
                 </h3>
                 <p className="mt-1 flex items-center gap-1.5 truncate text-[13px] text-ink-3">
-                  <PinIcon className="size-3.5 shrink-0" />
-                  {event.location}
+                  <PinIcon className="size-3.5 shrink-0 text-gold/80" />
+                  <span className="font-semibold text-gold">
+                    {getEventBranch(event) === "CHENNAI" ? "Chennai" : "Madurai"}
+                  </span>
+                  <span>·</span>
+                  <span className="truncate">{event.location}</span>
                 </p>
               </div>
             </div>

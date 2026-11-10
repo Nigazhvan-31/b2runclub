@@ -396,6 +396,7 @@ router.post("/", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response)
                 party_discount: partyDiscount,
                 discount_min_party: minParty ?? null,
                 hold_minutes: holdMinutes ?? null,
+                branch: req.body?.branch ? String(req.body.branch).toUpperCase() : (/chennai/i.test(location) ? "CHENNAI" : "MADURAI"),
             },
         });
 
@@ -479,9 +480,11 @@ router.get("/", async (req: AuthRequest, res: Response): Promise<void> => {
                limit eventually always has. */
             events.map((e: any) => {
                 const questions = (e.questions ?? []).map(toPublicQuestion);
+                const branch = e.branch || (/chennai|marina|besant/i.test(e.location) ? "CHENNAI" : "MADURAI");
                 if (e.capacity === null) {
                     return {
                         ...e,
+                        branch,
                         questions,
                         taken: null,
                         spots_left: null,
@@ -493,12 +496,13 @@ router.get("/", async (req: AuthRequest, res: Response): Promise<void> => {
                 const taken = counts.get(e.id) ?? 0;
                 return {
                     ...e,
+                    branch,
                     questions,
                     taken,
                     spots_left: Math.max(0, e.capacity - taken),
                     full: taken >= e.capacity,
                     max_party_size: MAX_PARTY_SIZE,
-                        discount_min_party_effective: discountMinParty(e),
+                    discount_min_party_effective: discountMinParty(e),
                 };
             }),
         );
@@ -720,6 +724,9 @@ router.put("/:id", requireRole(["ADMIN"]), async (req: AuthRequest, res: Respons
         // create route above, deliberately.
         if (cover_url !== undefined) {
             dataToUpdate.cover_url = typeof cover_url === "string" ? cover_url.trim() || null : null;
+        }
+        if (req.body?.branch !== undefined) {
+            dataToUpdate.branch = String(req.body.branch).toUpperCase();
         }
         /* Keyed on the toggle rather than either field, because the two move
            together: turning children off has to clear the price, which an

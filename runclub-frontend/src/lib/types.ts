@@ -2,6 +2,8 @@
  *  literals rather than enums, so these are string unions. */
 
 export type Role = "ADMIN" | "MEMBER" | "VOLUNTEER" | "VISITOR" | "BLOCKED";
+export type Branch = "MADURAI" | "CHENNAI";
+export type AdminBranch = "ALL" | "MADURAI" | "CHENNAI";
 export type EventStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 /**
  * Where a booking stands.
@@ -25,6 +27,7 @@ export interface User {
   email: string;
   name: string;
   role: Role;
+  branch?: Branch;
   emergency_contact?: string | null;
   created_at?: string;
   /**
@@ -73,6 +76,7 @@ export interface ClubEvent {
   location: string;
   price: number;
   status: EventStatus;
+  branch?: Branch;
   admin_id: string;
   /** Organiser's brief for the event. Null when none was written. */
   description?: string | null;

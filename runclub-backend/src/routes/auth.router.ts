@@ -97,6 +97,7 @@ router.post("/register", async (req: Request, res: Response): Promise<void> => {
         }
 
         const password_hash = hashPassword(password);
+        const userBranch = req.body?.branch ? String(req.body.branch).toUpperCase() : "MADURAI";
 
         const newUser = await prisma.user.create({
             data: {
@@ -104,6 +105,7 @@ router.post("/register", async (req: Request, res: Response): Promise<void> => {
                 password_hash,
                 name,
                 role: userRole,
+                branch: userBranch === "CHENNAI" ? "CHENNAI" : "MADURAI",
                 emergency_contact: emergency_contact || null,
                 phone: normalisedPhone.e164,
                 email_verified_at: mailerConfigured ? null : new Date(),
@@ -357,6 +359,7 @@ const publicUser = (u: {
     email: string;
     name: string;
     role: string;
+    branch?: string;
     emergency_contact: string | null;
     created_at: Date;
     phone: string | null;
@@ -366,6 +369,7 @@ const publicUser = (u: {
     email: u.email,
     name: u.name,
     role: u.role,
+    branch: (u as any).branch || "MADURAI",
     emergency_contact: u.emergency_contact,
     created_at: u.created_at,
     /* Collected and required at signup, but not proved — there is no way to
@@ -409,6 +413,7 @@ router.patch("/me", requireAccount, async (req: AuthRequest, res: Response): Pro
             name?: string;
             emergency_contact?: string | null;
             phone?: string;
+            branch?: string;
         } = {};
 
         // Normalised so the column holds one shape. Not clearable, unlike
@@ -445,6 +450,13 @@ router.patch("/me", requireAccount, async (req: AuthRequest, res: Response): Pro
                 return;
             } else {
                 data.emergency_contact = trimmed;
+            }
+        }
+
+        if (req.body?.branch !== undefined) {
+            const b = String(req.body.branch).toUpperCase();
+            if (b === "MADURAI" || b === "CHENNAI") {
+                data.branch = b;
             }
         }
 

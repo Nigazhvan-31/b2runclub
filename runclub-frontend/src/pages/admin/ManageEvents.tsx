@@ -22,9 +22,10 @@ import {
   useToast,
 } from "../../components/ui";
 import { api } from "../../lib/api";
-import { eventTime, fullDate, inr, isPast, PAYMENT_META } from "../../lib/format";
+import { cn, eventTime, fullDate, inr, isPast, PAYMENT_META } from "../../lib/format";
 import type { ClubEvent, EventStatus, RosterRow } from "../../lib/types";
 import { useFetch } from "../../lib/useFetch";
+import { getEventBranch, matchesBranch, useBranch } from "../../lib/branch";
 
 const STATUS_TINT: Record<EventStatus, string> = {
   DRAFT: "var(--color-pending)",
@@ -35,6 +36,7 @@ const STATUS_TINT: Record<EventStatus, string> = {
 type Filter = "all" | "PUBLISHED" | "DRAFT" | "ARCHIVED";
 
 export function ManageEvents() {
+  const { adminBranch, setAdminBranch } = useBranch();
   const toast = useToast();
   const load = useCallback(() => api.events(), []);
   const { data, loading, error, reload, setData } = useFetch(load);
@@ -48,8 +50,13 @@ export function ManageEvents() {
   const [deleting, setDeleting] = useState(false);
 
   const events = data ?? [];
+
+  const branchEvents = useMemo(() => {
+    return events.filter((e) => matchesBranch(e, adminBranch));
+  }, [events, adminBranch]);
+
   const visible = useMemo(() => {
-    let list = filter === "all" ? events : events.filter((e) => e.status === filter);
+    let list = filter === "all" ? branchEvents : branchEvents.filter((e) => e.status === filter);
     const q = query.trim().toLowerCase();
     if (q) {
       list = list.filter(
@@ -60,13 +67,13 @@ export function ManageEvents() {
       );
     }
     return list;
-  }, [events, filter, query]);
+  }, [branchEvents, filter, query]);
 
   const counts = {
-    all: events.length,
-    PUBLISHED: events.filter((e) => e.status === "PUBLISHED").length,
-    DRAFT: events.filter((e) => e.status === "DRAFT").length,
-    ARCHIVED: events.filter((e) => e.status === "ARCHIVED").length,
+    all: branchEvents.length,
+    PUBLISHED: branchEvents.filter((e) => e.status === "PUBLISHED").length,
+    DRAFT: branchEvents.filter((e) => e.status === "DRAFT").length,
+    ARCHIVED: branchEvents.filter((e) => e.status === "ARCHIVED").length,
   };
 
   const quickPublish = async (ev: ClubEvent) => {
@@ -114,6 +121,51 @@ export function ManageEvents() {
           </div>
         }
       />
+
+      {/* Admin Branch Selector */}
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-surface-2/60 p-3.5">
+        <div className="flex items-center gap-2 text-[13px] font-medium text-ink-2">
+          <span>Branch Filter:</span>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-surface p-1">
+          <button
+            type="button"
+            onClick={() => setAdminBranch("ALL")}
+            className={cn(
+              "rounded-lg px-3 py-1 text-[12px] font-semibold transition-colors cursor-pointer",
+              adminBranch === "ALL"
+                ? "bg-gold text-[color:var(--color-gold-ink)] font-bold shadow"
+                : "text-ink-3 hover:text-ink",
+            )}
+          >
+            🌐 All ({events.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminBranch("MADURAI")}
+            className={cn(
+              "rounded-lg px-3 py-1 text-[12px] font-semibold transition-colors cursor-pointer",
+              adminBranch === "MADURAI"
+                ? "bg-gold text-[color:var(--color-gold-ink)] font-bold shadow"
+                : "text-ink-3 hover:text-ink",
+            )}
+          >
+            🏛️ Madurai ({events.filter((e) => matchesBranch(e, "MADURAI")).length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminBranch("CHENNAI")}
+            className={cn(
+              "rounded-lg px-3 py-1 text-[12px] font-semibold transition-colors cursor-pointer",
+              adminBranch === "CHENNAI"
+                ? "bg-gold text-[color:var(--color-gold-ink)] font-bold shadow"
+                : "text-ink-3 hover:text-ink",
+            )}
+          >
+            🌊 Chennai ({events.filter((e) => matchesBranch(e, "CHENNAI")).length})
+          </button>
+        </div>
+      </div>
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <Tabs<Filter>
@@ -202,6 +254,9 @@ export function ManageEvents() {
                           {ev.title}
                         </Link>
                         <Badge color={STATUS_TINT[ev.status]}>{ev.status}</Badge>
+                        <Badge color="var(--color-gold)">
+                          {getEventBranch(ev) === "CHENNAI" ? "🌊 Chennai" : "🏛️ Madurai"}
+                        </Badge>
                         {isPast(ev.date_time) && <Badge>Past</Badge>}
                         {ev.full && <Badge color="var(--color-failed)">Full</Badge>}
                       </div>

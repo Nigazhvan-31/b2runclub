@@ -87,12 +87,14 @@ router.post("/register", async (req, res) => {
             return;
         }
         const password_hash = (0, crypto_2.hashPassword)(password);
+        const userBranch = req.body?.branch ? String(req.body.branch).toUpperCase() : "MADURAI";
         const newUser = await prisma_1.default.user.create({
             data: {
                 email,
                 password_hash,
                 name,
                 role: userRole,
+                branch: userBranch === "CHENNAI" ? "CHENNAI" : "MADURAI",
                 emergency_contact: emergency_contact || null,
                 phone: normalisedPhone.e164,
                 email_verified_at: mailer_1.mailerConfigured ? null : new Date(),
@@ -315,6 +317,7 @@ const publicUser = (u) => ({
     email: u.email,
     name: u.name,
     role: u.role,
+    branch: u.branch || "MADURAI",
     emergency_contact: u.emergency_contact,
     created_at: u.created_at,
     /* Collected and required at signup, but not proved — there is no way to
@@ -388,6 +391,12 @@ router.patch("/me", auth_1.requireAccount, async (req, res) => {
             }
             else {
                 data.emergency_contact = trimmed;
+            }
+        }
+        if (req.body?.branch !== undefined) {
+            const b = String(req.body.branch).toUpperCase();
+            if (b === "MADURAI" || b === "CHENNAI") {
+                data.branch = b;
             }
         }
         if (Object.keys(data).length === 0) {

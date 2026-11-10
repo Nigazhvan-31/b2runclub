@@ -20,6 +20,7 @@ import {
 } from "../components/ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { matchesBranch, useBranch } from "../lib/branch";
 import {
   cn,
   countdown,
@@ -63,6 +64,7 @@ function buildGrid(year: number, month: number) {
 
 export function Calendar() {
   const { canRegister, isAdmin } = useAuth();
+  const { branch, setBranch } = useBranch();
   const toast = useToast();
 
   const loadEvents = useCallback(() => api.events(), []);
@@ -83,10 +85,10 @@ export function Calendar() {
   const [creatingOn, setCreatingOn] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<Registration | null>(null);
 
-  /** Only events a member could actually attend appear on the calendar. */
+  /** Only events a member could actually attend appear on the calendar (filtered to user's chapter). */
   const bookable = useMemo(
-    () => (events ?? []).filter((e) => e.status === "PUBLISHED" || isAdmin),
-    [events, isAdmin],
+    () => (events ?? []).filter((e) => (e.status === "PUBLISHED" || isAdmin) && matchesBranch(e, branch)),
+    [events, isAdmin, branch],
   );
 
   const byDay = useMemo(() => {
@@ -203,6 +205,26 @@ export function Calendar() {
           </div>
         }
       />
+
+      {/* Chapter Indicator & Switcher */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-surface-2/60 px-4 py-3 text-[13px] text-ink-2 shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-base">{branch === "MADURAI" ? "🏛️" : "🌊"}</span>
+          <span>
+            Calendar for{" "}
+            <strong className="text-gold font-semibold">
+              {branch === "MADURAI" ? "Madurai Chapter" : "Chennai Chapter"}
+            </strong>
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setBranch(branch === "MADURAI" ? "CHENNAI" : "MADURAI")}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-gold/40 hover:bg-gold/10 hover:text-gold cursor-pointer"
+        >
+          <span>Switch to {branch === "MADURAI" ? "Chennai 🌊" : "Madurai 🏛️"}</span>
+        </button>
+      </div>
 
       {loading ? (
         <Card className="p-6">

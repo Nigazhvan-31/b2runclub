@@ -23,8 +23,9 @@ import {
 } from "../../components/ui";
 import { HeroVideoPanel } from "../../components/heroVideoPanel";
 import { MailerPanel } from "../../components/mailerPanel";
+import { matchesBranch, useBranch } from "../../lib/branch";
 import { api } from "../../lib/api";
-import { compact, eventDate, inr, isPast } from "../../lib/format";
+import { cn, compact, eventDate, inr, isPast } from "../../lib/format";
 import { useFetch } from "../../lib/useFetch";
 
 interface TurnoutRow {
@@ -42,6 +43,7 @@ interface TurnoutRow {
 }
 
 export function AdminDashboard() {
+  const { adminBranch, setAdminBranch } = useBranch();
   const loadFinance = useCallback(() => api.financialOverview(), []);
   const loadEvents = useCallback(() => api.events(), []);
   const loadPolls = useCallback(() => api.polls(), []);
@@ -57,13 +59,14 @@ export function AdminDashboard() {
   const [turnoutError, setTurnoutError] = useState<string | null>(null);
 
   /**
-   * Turnout per event. There is no aggregate endpoint, so this reads each
-   * event's roster export and counts it — fine for a club-sized calendar, and
-   * it reuses the only roster source the backend exposes.
+   * Turnout per event, filtered by the chosen admin branch (All | Madurai | Chennai).
    */
   const eventsForTurnout = useMemo(
-    () => (events.data ?? []).filter((e) => e.status !== "DRAFT"),
-    [events.data],
+    () =>
+      (events.data ?? []).filter(
+        (e) => e.status !== "DRAFT" && matchesBranch(e, adminBranch),
+      ),
+    [events.data, adminBranch],
   );
 
   useEffect(() => {
@@ -120,14 +123,35 @@ export function AdminDashboard() {
 
   const f = finance.data;
   const allEvents = events.data ?? [];
-  const upcoming = allEvents.filter(
+
+  const branchRevenue = useMemo(
+    () => (turnout ?? []).reduce((sum, r) => sum + r.revenue, 0),
+    [turnout],
+  );
+  const branchTotalHeads = useMemo(
+    () => (turnout ?? []).reduce((sum, r) => sum + r.total, 0),
+    [turnout],
+  );
+  const branchTicketed = useMemo(
+    () => (turnout ?? []).reduce((sum, r) => sum + r.ticketed, 0),
+    [turnout],
+  );
+
+  const displayEvents = useMemo(
+    () => allEvents.filter((e) => matchesBranch(e, adminBranch)),
+    [allEvents, adminBranch],
+  );
+  const upcoming = displayEvents.filter(
     (e) => e.status === "PUBLISHED" && !isPast(e.date_time),
   ).length;
-  const drafts = allEvents.filter((e) => e.status === "DRAFT").length;
+  const drafts = displayEvents.filter((e) => e.status === "DRAFT").length;
 
   const totalRegs = f
     ? f.paid_count + f.pending_count + f.failed_count + f.volunteer_free_count
     : 0;
+
+  const displayRevenue = adminBranch === "ALL" ? (f?.total_revenue ?? 0) : branchRevenue;
+  const displayRegistrations = adminBranch === "ALL" ? totalRegs : branchTotalHeads;
 
   /* Registration state: status palette, each with an icon + label so state
    * never reads by colour alone. */
@@ -216,23 +240,89 @@ export function AdminDashboard() {
         </Card>
       ) : f ? (
         <>
+          {/* Branch Filter Selector: All | Madurai | Chennai */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-surface-2/70 p-4 shadow-lg backdrop-blur-md">
+            <div className="flex items-center gap-2.5">
+              <span className="grid size-9 place-items-center rounded-xl bg-gold/15 text-lg text-gold">
+                {adminBranch === "ALL" ? "🌐" : adminBranch === "MADURAI" ? "🏛️" : "🌊"}
+              </span>
+              <div>
+                <p className="eyebrow text-gold">Branch Filter</p>
+                <h3 className="text-[15px] font-semibold text-ink">
+                  {adminBranch === "ALL"
+                    ? "All Chapters Combined (Club-Wide)"
+                    : adminBranch === "MADURAI"
+                      ? "Madurai Chapter Operations"
+                      : "Chennai Chapter Operations"}
+                </h3>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-surface p-1 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setAdminBranch("ALL")}
+                className={cn(
+                  "rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-all cursor-pointer",
+                  adminBranch === "ALL"
+                    ? "bg-gold text-[color:var(--color-gold-ink)] shadow"
+                    : "text-ink-3 hover:text-ink",
+                )}
+              >
+                🌐 All
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminBranch("MADURAI")}
+                className={cn(
+                  "rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-all cursor-pointer",
+                  adminBranch === "MADURAI"
+                    ? "bg-gold text-[color:var(--color-gold-ink)] shadow"
+                    : "text-ink-3 hover:text-ink",
+                )}
+              >
+                🏛️ Madurai
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminBranch("CHENNAI")}
+                className={cn(
+                  "rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-all cursor-pointer",
+                  adminBranch === "CHENNAI"
+                    ? "bg-gold text-[color:var(--color-gold-ink)] shadow"
+                    : "text-ink-3 hover:text-ink",
+                )}
+              >
+                🌊 Chennai
+              </button>
+            </div>
+          </div>
+
           {/* Hero figure — exactly one per view */}
           <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr_1fr]">
             <HeroFigure
-              label="Revenue captured"
-              value={inr(f.total_revenue)}
-              countTo={f.total_revenue}
+              label={adminBranch === "ALL" ? "Revenue captured" : `${adminBranch === "MADURAI" ? "Madurai" : "Chennai"} revenue`}
+              value={inr(displayRevenue)}
+              countTo={displayRevenue}
               countFormat={(v) => inr(Math.round(v))}
-              caption={`From ${f.paid_count} paid registration${f.paid_count === 1 ? "" : "s"}`}
+              caption={
+                adminBranch === "ALL"
+                  ? `From ${f.paid_count} paid registration${f.paid_count === 1 ? "" : "s"}`
+                  : `From ${adminBranch === "MADURAI" ? "Madurai" : "Chennai"} event collections`
+              }
             />
 
             <StatTile
-              label="Registrations"
-              value={compact(totalRegs)}
-              countTo={totalRegs}
+              label={adminBranch === "ALL" ? "Registrations" : `${adminBranch === "MADURAI" ? "Madurai" : "Chennai"} turnout`}
+              value={compact(displayRegistrations)}
+              countTo={displayRegistrations}
               countFormat={(v) => compact(Math.round(v))}
               icon={<UsersIcon className="size-4" />}
-              sub={`${f.paid_count} paid · ${f.volunteer_free_count} comped`}
+              sub={
+                adminBranch === "ALL"
+                  ? `${f.paid_count} paid · ${f.volunteer_free_count} comped`
+                  : `${branchTicketed} ticketed in ${adminBranch === "MADURAI" ? "Madurai" : "Chennai"}`
+              }
               meter={totalRegs > 0 ? (f.paid_count + f.volunteer_free_count) / totalRegs : 0}
               accent="var(--color-mark)"
             />

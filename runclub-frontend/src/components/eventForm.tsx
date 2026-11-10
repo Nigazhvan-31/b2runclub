@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
+import { getEventBranch } from "../lib/branch";
 import { REMINDER_OFFSETS } from "../lib/types";
 import type { ClubEvent, EventStatus, QuestionDraft } from "../lib/types";
 import { cn, inr } from "../lib/format";
@@ -61,6 +62,7 @@ const BLANK = {
   type: "Run",
   date_time: "",
   location: "",
+  branch: "MADURAI" as "MADURAI" | "CHENNAI",
   price: "0",
   /** Free text, used only when `type` is the custom sentinel. */
   custom_type: "",
@@ -362,6 +364,7 @@ export function EventFormModal({
         custom_type: EVENT_TYPES.includes(event.type) ? "" : event.type,
         date_time: toLocalInput(event.date_time),
         location: event.location,
+        branch: (event.branch as "MADURAI" | "CHENNAI") || getEventBranch(event),
         price: String(event.price),
         kids_allowed: Boolean(event.kids_allowed),
         kid_price: event.kid_price != null ? String(event.kid_price) : "0",
@@ -508,6 +511,7 @@ export function EventFormModal({
         // Local input → ISO, so the backend stores the intended instant.
         date_time: new Date(form.date_time).toISOString(),
         location: form.location.trim(),
+        branch: form.branch || "MADURAI",
         price,
         status: form.status,
         description: form.description.trim() || null,
@@ -628,14 +632,26 @@ export function EventFormModal({
           </Field>
         </div>
 
-        <Field label="Location" htmlFor="ev-loc">
-          <Input
-            id="ev-loc"
-            value={form.location}
-            onChange={set("location")}
-            placeholder="Cubbon Park, Bengaluru"
-          />
-        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Location" htmlFor="ev-loc">
+            <Input
+              id="ev-loc"
+              value={form.location}
+              onChange={set("location")}
+              placeholder="e.g. Race Course or Marina Beach"
+            />
+          </Field>
+          <Field label="Chapter / Branch" htmlFor="ev-branch" hint="Which city this event belongs to">
+            <Select
+              id="ev-branch"
+              value={form.branch}
+              onChange={set("branch")}
+            >
+              <option value="MADURAI">🏛️ Madurai Chapter</option>
+              <option value="CHENNAI">🌊 Chennai Chapter</option>
+            </Select>
+          </Field>
+        </div>
 
         <Field
           label="Description"

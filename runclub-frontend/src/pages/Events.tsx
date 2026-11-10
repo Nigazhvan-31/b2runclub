@@ -15,6 +15,7 @@ import {
 } from "../components/ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { matchesBranch, useBranch } from "../lib/branch";
 import { isPast } from "../lib/format";
 import type { ClubEvent, Registration } from "../lib/types";
 import { useFetch } from "../lib/useFetch";
@@ -33,9 +34,15 @@ const isOpen = (e: ClubEvent) => e.status === "PUBLISHED" && !isPast(e.date_time
 
 export function Events() {
   const { isAdmin, canRegister } = useAuth();
+  const { branch, setBranch } = useBranch();
 
   const loadEvents = useCallback(() => api.events(), []);
   const { data: events, loading, error, reload } = useFetch(loadEvents);
+
+  // Filter events strictly to the user's active chapter (Madurai or Chennai)
+  const branchEvents = useMemo(() => {
+    return (events ?? []).filter((e) => matchesBranch(e, branch));
+  }, [events, branch]);
 
   // Members/volunteers get their registrations so cards can show ticket state.
   const loadRegs = useCallback(
@@ -82,21 +89,21 @@ export function Events() {
   }, [regs]);
 
   const types = useMemo(() => {
-    const set = new Set((events ?? []).map((e) => e.type));
+    const set = new Set(branchEvents.map((e) => e.type));
     return ["ALL", ...[...set].sort()];
-  }, [events]);
+  }, [branchEvents]);
 
   const counts = useMemo(() => {
-    const all = events ?? [];
+    const all = branchEvents;
     return {
       upcoming: all.filter((e) => !isPast(e.date_time)).length,
       past: all.filter((e) => isPast(e.date_time)).length,
       all: all.length,
     };
-  }, [events]);
+  }, [branchEvents]);
 
   const visible = useMemo(() => {
-    let list = [...(events ?? [])];
+    let list = [...branchEvents];
 
     if (filter === "upcoming") list = list.filter((e) => !isPast(e.date_time));
     if (filter === "past") list = list.filter((e) => isPast(e.date_time));
@@ -118,7 +125,7 @@ export function Events() {
       return filter === "past" ? -d : d;
     });
     return list;
-  }, [events, filter, type, query]);
+  }, [branchEvents, filter, type, query]);
 
   /** How many of the cards on screen the highlight actually picks out. */
   const highlighted = useMemo(
@@ -150,6 +157,26 @@ export function Events() {
           )
         }
       />
+
+      {/* Chapter Indicator & Switcher */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-surface-2/60 px-4 py-3 text-[13px] text-ink-2 shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-base">{branch === "MADURAI" ? "🏛️" : "🌊"}</span>
+          <span>
+            Showing runs for{" "}
+            <strong className="text-gold font-semibold">
+              {branch === "MADURAI" ? "Madurai Chapter" : "Chennai Chapter"}
+            </strong>
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setBranch(branch === "MADURAI" ? "CHENNAI" : "MADURAI")}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-gold/40 hover:bg-gold/10 hover:text-gold cursor-pointer"
+        >
+          <span>Switch to {branch === "MADURAI" ? "Chennai 🌊" : "Madurai 🏛️"}</span>
+        </button>
+      </div>
 
       {/* Filters — one row above the grid */}
       <div className="mb-6 flex flex-wrap items-center gap-3">

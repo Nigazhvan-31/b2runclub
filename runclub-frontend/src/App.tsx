@@ -3,6 +3,7 @@ import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Footer, Navbar, ScrollManager } from "./components/layout";
 import { initAnalytics, trackPageView } from "./lib/analytics";
 import { VerificationBanner } from "./components/verificationBanner";
+import { BranchGatewayModal } from "./components/branchGateway";
 import { ScrollProgress } from "./components/motion";
 import { Spinner } from "./components/ui";
 import { useAuth } from "./lib/auth";
@@ -123,6 +124,8 @@ export default function App() {
 
   return (
     <>
+      {/* Chapter selection onboarding gateway */}
+      <BranchGatewayModal />
       {/* Above <Routes> rather than inside <Shell>, so the bare pages —
           sign-in, sign-up, the password flows — open at the top too. */}
       <ScrollManager />
