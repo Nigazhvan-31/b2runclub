@@ -7,10 +7,12 @@ import { AccountSettings } from "../components/accountSettings";
 import { HealthSyncCard } from "../components/healthSync";
 import { MyResultsCard, StreakCard } from "../components/streaks";
 import { useAuth } from "../lib/auth";
+import { useBranch } from "../lib/branch";
 import { fullDate, ROLE_META } from "../lib/format";
 
 export function Profile() {
   const { user, logout, canRegister, isAdmin } = useAuth();
+  const { branch } = useBranch();
 
   if (!user) return null;
   const meta = ROLE_META[user.role] ?? ROLE_META.MEMBER;
@@ -39,6 +41,26 @@ export function Profile() {
             <p className="text-[12px] text-ink-3">Member since {fullDate(user.created_at)}</p>
           </>
         )}
+      </Card>
+
+      {/* Location / Chapter */}
+      <Card className="mt-5 p-6 border-white/10 bg-surface-2/60">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="eyebrow text-gold">Active Chapter</p>
+            <h3 className="text-lg font-bold text-ink mt-1">
+              {branch === "CHENNAI" ? "Chennai Chapter" : "Madurai Chapter"}
+            </h3>
+            <p className="text-xs text-ink-3 mt-0.5">
+              {branch === "CHENNAI"
+                ? "Viewing coastal sessions and updates for Chennai."
+                : "Viewing temple city sessions and runs for Madurai."}
+            </p>
+          </div>
+          <Link to="/choose-chapter" className={buttonClass("outline", "sm")}>
+            Switch Location →
+          </Link>
+        </div>
       </Card>
 
       {/* Everything editable, in one place */}

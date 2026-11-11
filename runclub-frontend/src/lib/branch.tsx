@@ -81,16 +81,7 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     return typeof localStorage !== "undefined" && localStorage.getItem(CHOSEN_KEY) === "true";
   });
 
-  const [showGateway, setShowGateway] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      const p = new URLSearchParams(window.location.search);
-      const q = (p.get("branch") || p.get("chapter"))?.toUpperCase();
-      if (q === "CHENNAI" || q === "MADURAI") return false;
-      const path = window.location.pathname.toLowerCase();
-      if (path.startsWith("/chennai") || path.startsWith("/madurai")) return false;
-    }
-    return typeof localStorage !== "undefined" && localStorage.getItem(CHOSEN_KEY) !== "true";
-  });
+  const [showGateway, setShowGateway] = useState<boolean>(false);
 
   // If user logs in with a specific saved branch, sync it
   useEffect(() => {

@@ -20,6 +20,7 @@ import { DatabaseAdmin } from "./pages/admin/Database";
 import { ManageMembers } from "./pages/admin/ManageMembers";
 import { ManagePolls } from "./pages/admin/ManagePolls";
 import { Calendar } from "./pages/Calendar";
+import { ChooseChapter } from "./pages/ChooseChapter";
 import { About } from "./pages/About";
 import { Verify } from "./pages/Verify";
 import { PrivacyPage, RefundPage, TermsPage, VolunteerTermsPage } from "./pages/Policy";
@@ -99,7 +100,7 @@ function GuestGuard({ children }: { children: ReactNode }) {
       ? from
       : user.role === "ADMIN"
         ? "/admin"
-        : "/events";
+        : "/choose-chapter";
     return <Navigate to={dest} replace />;
   }
   return <>{children}</>;
@@ -178,6 +179,8 @@ export default function App() {
         {/* Chrome pages */}
         <Route element={<Shell />}>
           <Route path="/" element={<Landing />} />
+          <Route path="/choose-chapter" element={<ChooseChapter />} />
+          <Route path="/chapter" element={<ChooseChapter />} />
           <Route path="/chennai" element={<ChapterRoute chapter="CHENNAI" />} />
           <Route path="/madurai" element={<ChapterRoute chapter="MADURAI" />} />
           <Route path="/calendar" element={<Calendar />} />

@@ -275,6 +275,7 @@ export function BranchSwitcher() {
 
 function UserMenu() {
   const { user, logout } = useAuth();
+  const { branch } = useBranch();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -324,6 +325,18 @@ function UserMenu() {
               <p className="truncate text-[11px] text-ink-3">{user.email}</p>
             </div>
             <div className="p-1.5">
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  navigate("/choose-chapter");
+                }}
+                className="w-full rounded-lg px-2.5 py-2 text-left text-[13px] text-ink-2 transition-colors hover:bg-white/6 hover:text-ink flex items-center justify-between"
+              >
+                <span>Change Location</span>
+                <span className="text-xs font-semibold text-gold">
+                  {branch === "CHENNAI" ? "Chennai" : "Madurai"}
+                </span>
+              </button>
               <button
                 onClick={() => {
                   setOpen(false);
@@ -524,8 +537,6 @@ export function Navbar() {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="pointer-events-auto ml-auto flex items-center gap-2"
         >
-          <BranchSwitcher />
-
           {user ? (
             <>
               <NotificationBell />

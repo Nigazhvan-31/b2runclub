@@ -42,9 +42,10 @@ export function HeroVideo({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
 
-  const src = (branch === "CHENNAI" && club?.hero_video_url_chennai
-    ? club.hero_video_url_chennai
-    : club?.hero_video_url) ?? null;
+  // Chennai must NEVER fallback to Madurai's video. If Chennai has no video yet, return null.
+  const src = branch === "CHENNAI"
+    ? (club?.hero_video_url_chennai || null)
+    : (club?.hero_video_url || null);
   const kind = videoKind(src);
 
   useEffect(() => {

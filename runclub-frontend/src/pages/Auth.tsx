@@ -7,7 +7,6 @@ import { PageScene } from "../components/scene3d";
 import { Button, buttonClass, Field, Input, PasswordInput, Spinner, useToast } from "../components/ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useBranch } from "../lib/branch";
 import { useFetch } from "../lib/useFetch";
 
 /**
@@ -66,7 +65,6 @@ function AuthLayout({ children, aside }: { children: ReactNode; aside: ReactNode
 
 export function Login() {
   const { login, user, ready } = useAuth();
-  const { setShowGateway } = useBranch();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -76,10 +74,10 @@ export function Login() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const from = (location.state as { from?: string } | null)?.from ?? "/events";
+  const from = (location.state as { from?: string } | null)?.from;
 
   if (ready && user) {
-    return <Navigate to={user.role === "ADMIN" ? "/admin" : from} replace />;
+    return <Navigate to={user.role === "ADMIN" ? "/admin" : (from ?? "/choose-chapter")} replace />;
   }
 
   const submit = async (e: React.FormEvent, creds?: { email: string; password: string }) => {
@@ -89,10 +87,11 @@ export function Login() {
     try {
       const user = await login(creds?.email ?? email, creds?.password ?? password);
       toast(`Welcome back, ${user.name.split(" ")[0]}.`, "ok");
-      if (user.role !== "ADMIN") {
-        setShowGateway(true);
+      if (user.role === "ADMIN") {
+        navigate("/admin", { replace: true });
+      } else {
+        navigate(from && from !== "/login" && from !== "/signup" ? from : "/choose-chapter", { replace: true });
       }
-      navigate(user.role === "ADMIN" ? "/admin" : from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed");
     } finally {
@@ -202,7 +201,7 @@ export function Signup() {
   const from = (location.state as { from?: string } | null)?.from ?? "/events";
 
   if (ready && user) {
-    return <Navigate to={user.role === "ADMIN" ? "/admin" : from} replace />;
+    return <Navigate to={user.role === "ADMIN" ? "/admin" : "/choose-chapter"} replace />;
   }
 
   const [form, setForm] = useState({

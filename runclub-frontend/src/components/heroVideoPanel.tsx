@@ -25,7 +25,16 @@ const MAX_MB = 200;
 export function HeroVideoPanel() {
   const toast = useToast();
   const { adminBranch } = useBranch();
-  const isChennai = adminBranch === "CHENNAI";
+  const [activeTab, setActiveTab] = useState<"MADURAI" | "CHENNAI">(() =>
+    adminBranch === "CHENNAI" ? "CHENNAI" : "MADURAI",
+  );
+
+  useEffect(() => {
+    if (adminBranch === "CHENNAI") setActiveTab("CHENNAI");
+    else if (adminBranch === "MADURAI") setActiveTab("MADURAI");
+  }, [adminBranch]);
+
+  const isChennai = activeTab === "CHENNAI";
   const targetField = isChennai ? "hero_video_url_chennai" : "hero_video_url";
 
   const load = useCallback(() => api.clubInfo(), []);
@@ -85,35 +94,70 @@ export function HeroVideoPanel() {
 
   return (
     <Card className="p-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[15px] font-semibold text-ink">
-          Home page video ({isChennai ? "Chennai Chapter" : "Madurai Chapter"})
-        </h2>
-        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] font-medium text-gold">
-          {isChennai ? "🌊 Chennai" : "🏛️ Madurai"}
-        </span>
-      </div>
-      <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">
-        Plays muted on a loop behind the {isChennai ? "Chennai" : "Madurai"} home page hero. Leave it empty to keep the 3D graphic.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-[15px] font-semibold text-ink">Home Page Background Video</h2>
+          <p className="mt-1 text-[13px] leading-relaxed text-ink-3">
+            Manage looping hero videos for each chapter. Chennai and Madurai have separate videos.
+          </p>
+        </div>
 
-      <div className="mt-5 space-y-4">
+        {/* Chapter Switcher Tabs */}
+        <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-surface-2 p-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab("MADURAI")}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === "MADURAI"
+                ? "bg-gold text-[color:var(--color-gold-ink)] shadow"
+                : "text-ink-3 hover:text-ink"
+            }`}
+          >
+            🏛️ Madurai Video
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("CHENNAI")}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === "CHENNAI"
+                ? "bg-sky-400 text-stone-950 shadow"
+                : "text-ink-3 hover:text-ink"
+            }`}
+          >
+            🌊 Chennai Video
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-xl border border-white/8 bg-surface-2/40 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <span className={`inline-block size-2 rounded-full ${isChennai ? "bg-sky-400" : "bg-gold"}`} />
+          <h3 className="text-xs font-bold uppercase tracking-wider text-ink">
+            Editing {isChennai ? "Chennai Chapter" : "Madurai Chapter"} Hero Video
+          </h3>
+          {current ? (
+            <span className="ml-auto text-[11px] text-emerald-400 font-medium">● Video Active</span>
+          ) : (
+            <span className="ml-auto text-[11px] text-ink-3 font-medium">○ Using 3D Scene</span>
+          )}
+        </div>
+
         <Field
-          label="YouTube link or video URL"
+          label={`${isChennai ? "Chennai" : "Madurai"} Video Link or File`}
           htmlFor="hero-video"
-          hint="Any YouTube address works — watch, youtu.be, shorts or embed. Or paste a direct .mp4 / .webm link."
+          hint="Paste a YouTube URL (watch, shorts, embed) or upload an MP4/WebM file."
         >
           <Input
             id="hero-video"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://youtube.com/watch?v=… or /hero.mp4"
+            placeholder="https://youtube.com/watch?v=… or uploaded .mp4"
             inputMode="url"
           />
         </Field>
 
         {trimmed && (
-          <p className="text-[12px] text-ink-3">
+          <p className="mt-2 text-[12px] text-ink-3">
             Reads as{" "}
             <span className="font-semibold text-gold">
               {kind === "youtube" ? "a YouTube video" : "a video file"}
@@ -122,10 +166,9 @@ export function HeroVideoPanel() {
           </p>
         )}
 
-        {/* Silent preview, so a wrong or dead link is obvious here rather than
-            on the public home page. */}
+        {/* Silent preview */}
         {trimmed && (
-          <div className="overflow-hidden rounded-xl border border-white/8 bg-surface-2/60">
+          <div className="mt-4 overflow-hidden rounded-xl border border-white/8 bg-surface-2/60">
             {kind === "youtube" && ytId ? (
               <iframe
                 key={ytId}
@@ -149,9 +192,9 @@ export function HeroVideoPanel() {
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2.5">
+        <div className="mt-4 flex flex-wrap gap-2.5">
           <Button loading={busy && !uploading} disabled={!dirty} onClick={() => void save(trimmed)}>
-            Save video
+            Save {isChennai ? "Chennai" : "Madurai"} Video
           </Button>
           <Button
             variant="outline"
@@ -161,7 +204,7 @@ export function HeroVideoPanel() {
           >
             {uploading && progress > 0
               ? `Uploading ${Math.round(progress * 100)}%`
-              : "Upload a file"}
+              : `Upload ${isChennai ? "Chennai" : "Madurai"} File`}
           </Button>
           {current && (
             <Button
@@ -182,7 +225,6 @@ export function HeroVideoPanel() {
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              // Reset so picking the same file twice still fires onChange.
               e.target.value = "";
               if (f) void pickFile(f);
             }}
@@ -190,20 +232,18 @@ export function HeroVideoPanel() {
         </div>
 
         {uploading && (
-          <div className="h-1 overflow-hidden rounded-full bg-white/8">
+          <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/8">
             <div
               className="h-full rounded-full bg-gold transition-[width] duration-200"
               style={{ width: `${Math.max(2, Math.round(progress * 100))}%` }}
             />
           </div>
         )}
-
-        <p className="text-[11.5px] leading-relaxed text-ink-3">
-          Up to {MAX_MB}MB. Files go straight to storage rather than through the API, so the host's
-          request-size limit no longer applies. Keep it short anyway — it downloads before anyone
-          reads the page. Skipped entirely for visitors who ask for reduced motion.
-        </p>
       </div>
+
+      <p className="mt-4 text-[11.5px] leading-relaxed text-ink-3">
+        Up to {MAX_MB}MB. If no video is uploaded for a chapter, that chapter gracefully displays the high-performance 3D scene.
+      </p>
     </Card>
   );
 }
