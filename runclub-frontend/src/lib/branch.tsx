@@ -33,24 +33,63 @@ export function BranchProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
 
   const [branch, setBranchState] = useState<Branch>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY) as Branch | null;
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const q = (p.get("branch") || p.get("chapter"))?.toUpperCase();
+      if (q === "CHENNAI" || q === "MADURAI") {
+        try {
+          localStorage.setItem(STORAGE_KEY, q);
+          localStorage.setItem(CHOSEN_KEY, "true");
+        } catch {}
+        return q as Branch;
+      }
+      const path = window.location.pathname.toLowerCase();
+      if (path.startsWith("/chennai")) {
+        try {
+          localStorage.setItem(STORAGE_KEY, "CHENNAI");
+          localStorage.setItem(CHOSEN_KEY, "true");
+        } catch {}
+        return "CHENNAI";
+      }
+      if (path.startsWith("/madurai")) {
+        try {
+          localStorage.setItem(STORAGE_KEY, "MADURAI");
+          localStorage.setItem(CHOSEN_KEY, "true");
+        } catch {}
+        return "MADURAI";
+      }
+    }
+    const saved = typeof localStorage !== "undefined" ? (localStorage.getItem(STORAGE_KEY) as Branch | null) : null;
     if (saved === "CHENNAI" || saved === "MADURAI") return saved;
     return "MADURAI";
   });
 
   const [adminBranch, setAdminBranchState] = useState<AdminBranch>(() => {
-    const saved = localStorage.getItem(ADMIN_STORAGE_KEY) as AdminBranch | null;
+    const saved = typeof localStorage !== "undefined" ? (localStorage.getItem(ADMIN_STORAGE_KEY) as AdminBranch | null) : null;
     if (saved === "ALL" || saved === "CHENNAI" || saved === "MADURAI") return saved;
     return "ALL";
   });
 
   const [hasChosenBranch, setHasChosenBranch] = useState<boolean>(() => {
-    return localStorage.getItem(CHOSEN_KEY) === "true";
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const q = (p.get("branch") || p.get("chapter"))?.toUpperCase();
+      if (q === "CHENNAI" || q === "MADURAI") return true;
+      const path = window.location.pathname.toLowerCase();
+      if (path.startsWith("/chennai") || path.startsWith("/madurai")) return true;
+    }
+    return typeof localStorage !== "undefined" && localStorage.getItem(CHOSEN_KEY) === "true";
   });
 
   const [showGateway, setShowGateway] = useState<boolean>(() => {
-    // If not chosen yet in this browser, show the gateway
-    return localStorage.getItem(CHOSEN_KEY) !== "true";
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const q = (p.get("branch") || p.get("chapter"))?.toUpperCase();
+      if (q === "CHENNAI" || q === "MADURAI") return false;
+      const path = window.location.pathname.toLowerCase();
+      if (path.startsWith("/chennai") || path.startsWith("/madurai")) return false;
+    }
+    return typeof localStorage !== "undefined" && localStorage.getItem(CHOSEN_KEY) !== "true";
   });
 
   // If user logs in with a specific saved branch, sync it

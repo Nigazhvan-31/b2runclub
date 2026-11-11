@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
-import { getEventBranch } from "../lib/branch";
+import { getEventBranch, useBranch } from "../lib/branch";
 import { REMINDER_OFFSETS } from "../lib/types";
 import type { ClubEvent, EventStatus, QuestionDraft } from "../lib/types";
 import { cn, inr } from "../lib/format";
@@ -250,6 +250,7 @@ export function EventFormModal({
   onClose: () => void;
   onSaved: (event: ClubEvent) => void;
 }) {
+  const { adminBranch } = useBranch();
   const editing = Boolean(event);
   const [form, setForm] = useState(BLANK);
   const [offsets, setOffsets] = useState<number[]>([]);
@@ -395,11 +396,12 @@ export function EventFormModal({
     } else {
       setForm({
         ...BLANK,
+        branch: adminBranch === "CHENNAI" ? "CHENNAI" : "MADURAI",
         date_time: defaultDate ? dayKeyToLocalInput(defaultDate) : "",
       });
       setQuestions([]);
     }
-  }, [open, event, defaultDate]);
+  }, [open, event, defaultDate, adminBranch]);
 
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));

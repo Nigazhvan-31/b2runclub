@@ -154,7 +154,7 @@ export function EventDetail() {
   const facts = [
     {
       label: "Chapter",
-      value: eventBranch === "CHENNAI" ? "🌊 Chennai Chapter" : "🏛️ Madurai Chapter",
+      value: eventBranch === "CHENNAI" ? "Chennai Chapter" : "🏛️ Madurai Chapter",
     },
     { label: "Date", value: fullDate(event.date_time) },
     { label: "Start time", value: eventTime(event.date_time) },
@@ -214,7 +214,7 @@ export function EventDetail() {
                   </span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/40 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-ink backdrop-blur-md">
-                  <span>{eventBranch === "CHENNAI" ? "🌊 Chennai Chapter" : "🏛️ Madurai Chapter"}</span>
+                  <span>{eventBranch === "CHENNAI" ? "Chennai Chapter" : "🏛️ Madurai Chapter"}</span>
                 </span>
                 {isAdmin && event.status !== "PUBLISHED" && (
                   <Badge color={EVENT_STATUS_TINT[event.status]}>{event.status}</Badge>

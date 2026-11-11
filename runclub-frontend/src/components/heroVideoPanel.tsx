@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
+import { useBranch } from "../lib/branch";
 import { useFetch } from "../lib/useFetch";
 import { videoKind, youtubeEmbedUrl, youtubeId } from "../lib/video";
 import { Button, Card, Field, Input, useToast } from "./ui";
@@ -23,6 +24,10 @@ const MAX_MB = 200;
  */
 export function HeroVideoPanel() {
   const toast = useToast();
+  const { adminBranch } = useBranch();
+  const isChennai = adminBranch === "CHENNAI";
+  const targetField = isChennai ? "hero_video_url_chennai" : "hero_video_url";
+
   const load = useCallback(() => api.clubInfo(), []);
   const { data: club, setData } = useFetch(load);
 
@@ -34,10 +39,11 @@ export function HeroVideoPanel() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setUrl(club?.hero_video_url ?? "");
-  }, [club?.hero_video_url]);
+    const val = isChennai ? club?.hero_video_url_chennai : club?.hero_video_url;
+    setUrl(val ?? "");
+  }, [club, isChennai]);
 
-  const current = club?.hero_video_url ?? null;
+  const current = (isChennai ? club?.hero_video_url_chennai : club?.hero_video_url) ?? null;
   const trimmed = url.trim();
   const dirty = trimmed !== (current ?? "");
   const kind = videoKind(trimmed);
@@ -46,14 +52,10 @@ export function HeroVideoPanel() {
   const save = async (next: string) => {
     setBusy(true);
     try {
-      // Empty string clears it server-side, which is how "Remove" works.
-      // The route answers { message, club } — not the record on its own, which
-      // is what this used to assume, so the saved value was dropped from local
-      // state and the panel showed the field as empty until a reload.
-      const { club: updated } = await api.saveClubInfo({ hero_video_url: next });
+      const { club: updated } = await api.saveClubInfo({ [targetField]: next });
       setData(() => updated);
-      setUrl(updated.hero_video_url ?? "");
-      toast(next ? "Hero video updated." : "Hero video removed.", "ok");
+      setUrl((isChennai ? updated.hero_video_url_chennai : updated.hero_video_url) ?? "");
+      toast(next ? `${isChennai ? "Chennai" : "Madurai"} hero video updated.` : "Hero video removed.", "ok");
     } catch (err) {
       toast(err instanceof Error ? err.message : "Could not save", "err");
     } finally {
@@ -83,9 +85,16 @@ export function HeroVideoPanel() {
 
   return (
     <Card className="p-6">
-      <h2 className="text-[15px] font-semibold text-ink">Home page video</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-[15px] font-semibold text-ink">
+          Home page video ({isChennai ? "Chennai Chapter" : "Madurai Chapter"})
+        </h2>
+        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] font-medium text-gold">
+          {isChennai ? "🌊 Chennai" : "🏛️ Madurai"}
+        </span>
+      </div>
       <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">
-        Plays muted on a loop behind the hero. Leave it empty to keep the 3D graphic.
+        Plays muted on a loop behind the {isChennai ? "Chennai" : "Madurai"} home page hero. Leave it empty to keep the 3D graphic.
       </p>
 
       <div className="mt-5 space-y-4">

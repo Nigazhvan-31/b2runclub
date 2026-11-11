@@ -392,6 +392,7 @@ router.put("/club", requireRole(["ADMIN"]), async (req: AuthRequest, res: Respon
             "strava_url",
             "whatsapp",
             "hero_video_url",
+            "hero_video_url_chennai",
         ] as const;
 
         const data: Record<string, string | null> = {};

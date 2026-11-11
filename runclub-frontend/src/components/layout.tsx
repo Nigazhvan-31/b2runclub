@@ -255,111 +255,19 @@ function NotificationBell() {
 /* ── Branch / Chapter Switcher ────────────────────────────── */
 
 export function BranchSwitcher() {
-  const { branch, setBranch, setShowGateway } = useBranch();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open]);
+  const { branch, setShowGateway } = useBranch();
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-label="Select B2 Club Chapter"
-        className="flex items-center gap-1.5 rounded-full border border-white/12 bg-surface-2/90 px-3 py-1.5 text-[12px] font-medium text-ink transition-all hover:border-gold/50 hover:bg-surface-3 cursor-pointer shadow-sm"
-      >
-        <span className="text-[12px]">{branch === "MADURAI" ? "🏛️" : "🌊"}</span>
-        <span className="font-semibold text-gold tracking-wide">
-          {branch === "MADURAI" ? "Madurai" : "Chennai"}
-        </span>
-        <span className="text-[9px] text-ink-3">▾</span>
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.98 }}
-            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="card absolute right-0 top-10 z-50 w-52 overflow-hidden p-1 shadow-2xl border border-white/12 bg-surface"
-          >
-            <div className="border-b border-white/8 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-ink-3">
-              Switch Chapter
-            </div>
-
-            <div className="p-1 space-y-0.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setBranch("MADURAI");
-                  setOpen(false);
-                }}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-[12.5px] font-medium transition-colors cursor-pointer",
-                  branch === "MADURAI"
-                    ? "bg-gold/15 text-gold font-semibold"
-                    : "text-ink-2 hover:bg-white/6 hover:text-ink",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-base">🏛️</span>
-                  <div>
-                    <div className="font-semibold">Madurai Chapter</div>
-                    <div className="text-[10px] text-ink-3">Active Sessions</div>
-                  </div>
-                </div>
-                {branch === "MADURAI" && <span className="text-gold font-bold">✓</span>}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setBranch("CHENNAI");
-                  setOpen(false);
-                }}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-[12.5px] font-medium transition-colors cursor-pointer",
-                  branch === "CHENNAI"
-                    ? "bg-gold/15 text-gold font-semibold"
-                    : "text-ink-2 hover:bg-white/6 hover:text-ink",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-base">🌊</span>
-                  <div>
-                    <div className="font-semibold">Chennai Chapter</div>
-                    <div className="text-[10px] text-sky-400/80">Launching Soon</div>
-                  </div>
-                </div>
-                {branch === "CHENNAI" && <span className="text-gold font-bold">✓</span>}
-              </button>
-            </div>
-
-            <div className="border-t border-white/8 p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  setShowGateway(true);
-                }}
-                className="w-full rounded-lg px-2.5 py-1.5 text-center text-[11px] font-medium text-ink-3 hover:text-ink transition-colors cursor-pointer"
-              >
-                Explore Chapters Guide
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <button
+      type="button"
+      onClick={() => setShowGateway(true)}
+      aria-label="Change B2 Club Chapter"
+      title="Click to change chapter (Madurai / Chennai)"
+      className="flex items-center gap-1.5 rounded-full border border-white/12 bg-surface-2/90 px-3 py-1.5 text-[12px] font-semibold text-gold tracking-wide transition-all hover:border-gold/50 hover:bg-surface-3 cursor-pointer shadow-sm"
+    >
+      <span>{branch === "MADURAI" ? "Madurai" : "Chennai"}</span>
+      <span className="text-[9px] text-ink-3">▾</span>
+    </button>
   );
 }
 

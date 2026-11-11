@@ -22,6 +22,7 @@ import { UpcomingScroller } from "../components/upcomingScroller";
 import { buttonClass, Card } from "../components/ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { matchesBranch, useBranch } from "../lib/branch";
 import { isPast } from "../lib/format";
 import { useFetch } from "../lib/useFetch";
 
@@ -128,15 +129,16 @@ function useCardReveal(
 
 export function Landing() {
   const { user } = useAuth();
+  const { branch } = useBranch();
 
   const load = useCallback(() => api.events(), []);
   const { data: events, loading } = useFetch(load);
 
-  const loadGallery = useCallback(() => api.gallery(), []);
+  const loadGallery = useCallback(() => api.gallery(undefined, branch), [branch]);
   const { data: gallery } = useFetch(loadGallery);
 
   const upcoming = (events ?? [])
-    .filter((e) => e.status === "PUBLISHED" && !isPast(e.date_time))
+    .filter((e) => e.status === "PUBLISHED" && !isPast(e.date_time) && matchesBranch(e, branch))
     .sort((a, b) => +new Date(a.date_time) - +new Date(b.date_time));
 
   const photos = gallery ?? [];
@@ -349,7 +351,31 @@ export function Landing() {
 
         {/* Next event spotlight — scroller over every upcoming session so users can slide to see the second and other events */}
         <div ref={heroSpotlightRef} className="mt-14">
-          <UpcomingScroller events={upcoming} loading={loading} />
+          {branch === "CHENNAI" && !loading && upcoming.length === 0 ? (
+            <Card className="speedlines card-glow relative mx-auto max-w-2xl overflow-hidden p-8 text-center border-sky-500/30 bg-gradient-to-b from-sky-500/10 via-surface/90 to-surface">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-sky-500/15 text-sky-300 border border-sky-500/30 mb-3">
+                Chennai Chapter
+              </div>
+              <h2 className="display text-[clamp(24px,3.2vw,36px)] font-bold text-ink">
+                Chennai Coastal Runs Launching Soon
+              </h2>
+              <p className="mt-3 mx-auto max-w-lg text-[13.5px] text-ink-2 leading-relaxed">
+                Sunrise miles along Marina Beach promenade and Besant Nagar coastal circuits are in development. Stay tuned for opening dates!
+              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <a
+                  href="https://instagram.com/b2runclub"
+                  target="_blank"
+                  rel="noreferrer"
+                  className={buttonClass("gold", "md", "shadow-lg")}
+                >
+                  Follow @b2runclub on Instagram →
+                </a>
+              </div>
+            </Card>
+          ) : (
+            <UpcomingScroller events={upcoming} loading={loading} />
+          )}
         </div>
       </section>
 

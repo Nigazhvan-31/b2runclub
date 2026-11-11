@@ -216,6 +216,8 @@ model ClubInfo {
   /// request bodies at 4.5MB, so uploading one through the API would fail for
   /// exactly the files people actually have. Null falls back to the 3D scene.
   hero_video_url String?
+  /// Specific looping background video for Chennai Chapter hero, if set.
+  hero_video_url_chennai String?
   updated_at    DateTime @updatedAt
 }
 

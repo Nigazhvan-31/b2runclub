@@ -21,6 +21,7 @@ import {
 } from "../components/ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useBranch } from "../lib/branch";
 import { cn, eventDate, relativeTime, ROLE_META } from "../lib/format";
 import { DUR, EASE } from "../lib/motion";
 import type { Photo } from "../lib/types";
@@ -120,9 +121,10 @@ async function optimiseImageFile(
 
 export function Gallery() {
   const { role, user } = useAuth();
+  const { branch } = useBranch();
   const toast = useToast();
 
-  const load = useCallback(() => api.gallery(), []);
+  const load = useCallback(() => api.gallery(undefined, branch), [branch]);
   const { data, loading, error, reload, setData } = useFetch(load);
 
   /** Club members, volunteers and admins can all add photos. */

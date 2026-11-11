@@ -207,9 +207,10 @@ export function Calendar() {
       />
 
       {/* Chapter Indicator & Switcher */}
+      {/* Chapter Indicator */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-surface-2/60 px-4 py-3 text-[13px] text-ink-2 shadow-sm">
         <div className="flex items-center gap-2">
-          <span className="text-base">{branch === "MADURAI" ? "🏛️" : "🌊"}</span>
+          {branch === "MADURAI" && <span className="text-base">🏛️</span>}
           <span>
             Calendar for{" "}
             <strong className="text-gold font-semibold">
@@ -217,36 +218,41 @@ export function Calendar() {
             </strong>
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => setBranch(branch === "MADURAI" ? "CHENNAI" : "MADURAI")}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-gold/40 hover:bg-gold/10 hover:text-gold cursor-pointer"
-        >
-          <span>Switch to {branch === "MADURAI" ? "Chennai 🌊" : "Madurai 🏛️"}</span>
-        </button>
+        {branch === "MADURAI" && (
+          <button
+            type="button"
+            onClick={() => setBranch("CHENNAI")}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-gold/40 hover:bg-gold/10 hover:text-gold cursor-pointer"
+          >
+            <span>Switch to Chennai</span>
+          </button>
+        )}
       </div>
 
       {branch === "CHENNAI" && (
         <div className="mb-6 rounded-2xl border border-sky-500/25 bg-sky-500/10 p-5 backdrop-blur-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
-              <span className="text-2xl shrink-0">🌊</span>
               <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider bg-sky-500/20 text-sky-300 border border-sky-500/30 mb-2">
+                  Chennai Chapter
+                </div>
                 <h3 className="font-semibold text-sky-200 text-[15px]">
                   Chennai Chapter Calendar Launching Soon
                 </h3>
                 <p className="mt-1 text-[13px] text-sky-200/80 leading-relaxed">
-                  Zero sessions are scheduled for Chennai right now while we prepare sunrise coastal runs at Marina Beach &amp; Besant Nagar. Looking for active runs? Check out the Madurai Chapter calendar!
+                  Zero sessions are scheduled for Chennai right now while we prepare sunrise coastal runs at Marina Beach &amp; Besant Nagar. Stay tuned for calendar drops!
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setBranch("MADURAI")}
+            <a
+              href="https://instagram.com/b2runclub"
+              target="_blank"
+              rel="noreferrer"
               className={cn(buttonClass("gold", "sm"), "shrink-0 self-start sm:self-center cursor-pointer")}
             >
-              <span>🏛️ Switch to Madurai Chapter →</span>
-            </button>
+              <span>Follow @b2runclub →</span>
+            </a>
           </div>
         </div>
       )}

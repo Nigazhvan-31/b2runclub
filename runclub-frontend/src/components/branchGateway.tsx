@@ -68,8 +68,7 @@ export function BranchGatewayModal() {
                   : "border-white/10 bg-surface-2 hover:border-gold/50 hover:bg-white/[0.03]",
               )}
             >
-              <div className="flex items-start justify-between">
-                <span className="text-3xl">🏛️</span>
+              <div className="flex items-start justify-end">
                 <span
                   className={cn(
                     "rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider",
@@ -112,8 +111,7 @@ export function BranchGatewayModal() {
                   : "border-white/10 bg-surface-2 hover:border-sky-500/50 hover:bg-white/[0.03]",
               )}
             >
-              <div className="flex items-start justify-between">
-                <span className="text-3xl">🌊</span>
+              <div className="flex items-start justify-end">
                 <span
                   className={cn(
                     "rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider",

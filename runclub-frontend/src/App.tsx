@@ -7,6 +7,7 @@ import { BranchGatewayModal } from "./components/branchGateway";
 import { ScrollProgress } from "./components/motion";
 import { Spinner } from "./components/ui";
 import { useAuth } from "./lib/auth";
+import { useBranch } from "./lib/branch";
 import type { Role } from "./lib/types";
 
 import { ForgotPassword, Login, ResetPassword, Signup } from "./pages/Auth";
@@ -104,6 +105,14 @@ function GuestGuard({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function ChapterRoute({ chapter }: { chapter: "CHENNAI" | "MADURAI" }) {
+  const { setBranch } = useBranch();
+  useEffect(() => {
+    setBranch(chapter);
+  }, [setBranch, chapter]);
+  return <Navigate to="/events" replace />;
+}
+
 function AnalyticsTracker() {
   const location = useLocation();
 
@@ -169,6 +178,8 @@ export default function App() {
         {/* Chrome pages */}
         <Route element={<Shell />}>
           <Route path="/" element={<Landing />} />
+          <Route path="/chennai" element={<ChapterRoute chapter="CHENNAI" />} />
+          <Route path="/madurai" element={<ChapterRoute chapter="MADURAI" />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/events" element={<Events />} />
           <Route path="/events/:id" element={<EventDetail />} />

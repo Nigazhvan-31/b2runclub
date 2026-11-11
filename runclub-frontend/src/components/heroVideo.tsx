@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
+import { useBranch } from "../lib/branch";
 import { useCalmMotion } from "../lib/motion";
 import { useFetch } from "../lib/useFetch";
 import { videoKind, youtubeEmbedUrl, youtubeId, youtubeThumbnail } from "../lib/video";
@@ -35,12 +36,15 @@ export function HeroVideo({
   onAspect?: (ratio: number) => void;
 } = {}) {
   const calm = useCalmMotion();
+  const { branch } = useBranch();
   const load = useCallback(() => api.clubInfo(), []);
   const { data: club } = useFetch(load);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
 
-  const src = club?.hero_video_url ?? null;
+  const src = (branch === "CHENNAI" && club?.hero_video_url_chennai
+    ? club.hero_video_url_chennai
+    : club?.hero_video_url) ?? null;
   const kind = videoKind(src);
 
   useEffect(() => {

@@ -343,6 +343,7 @@ router.put("/club", (0, auth_1.requireRole)(["ADMIN"]), async (req, res) => {
             "strava_url",
             "whatsapp",
             "hero_video_url",
+            "hero_video_url_chennai",
         ];
         const data = {};
         for (const key of fields) {

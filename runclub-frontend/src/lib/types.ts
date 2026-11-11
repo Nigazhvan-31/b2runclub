@@ -421,6 +421,8 @@ export interface ClubInfo {
   whatsapp: string | null;
   /** Looping hero video for the home page. Null falls back to the 3D scene. */
   hero_video_url: string | null;
+  /** Looping hero video specifically for Chennai Chapter, or null. */
+  hero_video_url_chennai?: string | null;
   updated_at: string | null;
 }
 

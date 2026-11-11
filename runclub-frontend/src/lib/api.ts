@@ -1,4 +1,5 @@
 import type {
+  AdminBranch,
   AssignableRole,
   Branch,
   CheckInResult,
@@ -608,11 +609,14 @@ export const api = {
 
   /* ── gallery / about / collaborators ────────────────────── */
 
-  /** Optionally narrowed to one event, for the photo strip on an event page. */
-  gallery: (eventId?: string) =>
-    request<Photo[]>(
-      eventId ? `/api/content/gallery?event_id=${encodeURIComponent(eventId)}` : "/api/content/gallery",
-    ),
+  /** Optionally narrowed to one event or chapter, for gallery filtering. */
+  gallery: (eventId?: string, branch?: Branch | AdminBranch) => {
+    const params = new URLSearchParams();
+    if (eventId) params.set("event_id", eventId);
+    if (branch && branch !== "ALL") params.set("branch", branch);
+    const qs = params.toString();
+    return request<Photo[]>(qs ? `/api/content/gallery?${qs}` : "/api/content/gallery");
+  },
 
   /**
    * Upload a photo. Takes a File (multipart) or an external URL.

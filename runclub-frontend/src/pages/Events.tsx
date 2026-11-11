@@ -158,10 +158,10 @@ export function Events() {
         }
       />
 
-      {/* Chapter Indicator & Switcher */}
+      {/* Chapter Indicator */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-surface-2/60 px-4 py-3 text-[13px] text-ink-2 shadow-sm">
         <div className="flex items-center gap-2">
-          <span className="text-base">{branch === "MADURAI" ? "🏛️" : "🌊"}</span>
+          {branch === "MADURAI" && <span className="text-base">🏛️</span>}
           <span>
             Showing runs for{" "}
             <strong className="text-gold font-semibold">
@@ -169,13 +169,15 @@ export function Events() {
             </strong>
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => setBranch(branch === "MADURAI" ? "CHENNAI" : "MADURAI")}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-gold/40 hover:bg-gold/10 hover:text-gold cursor-pointer"
-        >
-          <span>Switch to {branch === "MADURAI" ? "Chennai 🌊" : "Madurai 🏛️"}</span>
-        </button>
+        {branch === "MADURAI" && (
+          <button
+            type="button"
+            onClick={() => setBranch("CHENNAI")}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-gold/40 hover:bg-gold/10 hover:text-gold cursor-pointer"
+          >
+            <span>Switch to Chennai</span>
+          </button>
+        )}
       </div>
 
       {/* Filters — one row above the grid */}
@@ -276,9 +278,6 @@ export function Events() {
       ) : visible.length === 0 ? (
         branch === "CHENNAI" && !query && type === "ALL" ? (
           <Card className="relative overflow-hidden p-8 sm:p-12 text-center border-sky-500/25 bg-gradient-to-b from-sky-500/10 via-surface-2/70 to-surface-2">
-            <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-sky-500/15 text-3xl mb-4 border border-sky-500/30 shadow-inner">
-              🌊
-            </div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-sky-500/15 text-sky-300 border border-sky-500/30 mb-3">
               Chennai Chapter
             </div>
@@ -289,25 +288,17 @@ export function Events() {
               We are gearing up for our coastal runs in Chennai! Sunrise weekend sessions at Marina Beach promenade and Besant Nagar are currently being organized. No events have been scheduled for Chennai yet.
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => setBranch("MADURAI")}
-                className={buttonClass("gold", "lg", "cursor-pointer shadow-lg")}
-              >
-                <span>🏛️ View Madurai Chapter Runs (8 Active Runs) →</span>
-              </button>
-            </div>
-            <p className="mt-5 text-xs text-ink-3">
-              Are you in Chennai? Stay tuned — announcements drop on our Instagram{" "}
               <a
                 href="https://instagram.com/b2runclub"
                 target="_blank"
                 rel="noreferrer"
-                className="text-gold underline underline-offset-2 hover:text-gold-light"
+                className={buttonClass("gold", "md", "cursor-pointer shadow-lg")}
               >
-                @b2runclub
+                <span>Follow @b2runclub for Updates →</span>
               </a>
-              !
+            </div>
+            <p className="mt-5 text-xs text-ink-3">
+              Are you based in Chennai? Announcements and first start-line drop dates will be posted directly on our Instagram!
             </p>
           </Card>
         ) : (
