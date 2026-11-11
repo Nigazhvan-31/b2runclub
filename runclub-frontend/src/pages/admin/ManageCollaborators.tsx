@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PlusIcon, SparkIcon } from "../../components/icons";
 import { Page, PageHeader } from "../../components/layout";
 import { PageScene } from "../../components/scene3d";
 import { Tilt } from "../../components/tilt";
+import { useBranch } from "../../lib/branch";
 import {
   Badge,
   Button,
@@ -38,7 +39,8 @@ const tierOf = (t: string) => TIERS.find((x) => x.value === t) ?? TIERS[1];
 
 export function ManageCollaborators() {
   const toast = useToast();
-  const load = useCallback(() => api.collaborators(), []);
+  const { adminBranch, setAdminBranch } = useBranch();
+  const load = useCallback(() => api.collaborators(adminBranch), [adminBranch]);
   const { data, loading, error, reload, setData } = useFetch(load);
 
   const [adding, setAdding] = useState(false);
@@ -46,7 +48,11 @@ export function ManageCollaborators() {
   const [confirm, setConfirm] = useState<Collaborator | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const rows = data ?? [];
+  const allRows = data ?? [];
+  const rows = useMemo(() => {
+    if (adminBranch === "ALL") return allRows;
+    return allRows.filter((c) => !c.branch || c.branch === "ALL" || c.branch === adminBranch);
+  }, [allRows, adminBranch]);
 
   const remove = async () => {
     if (!confirm) return;
@@ -88,6 +94,64 @@ export function ManageCollaborators() {
           </div>
         }
       />
+
+      {/* Chapter Filter Selector: All | Madurai | Chennai */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-surface-2/70 p-4 shadow-lg backdrop-blur-md">
+        <div className="flex items-center gap-2.5">
+          <span className="grid size-9 place-items-center rounded-xl bg-gold/15 text-lg text-gold">
+            {adminBranch === "ALL" ? "🌐" : adminBranch === "MADURAI" ? "🏛️" : "🌊"}
+          </span>
+          <div>
+            <p className="eyebrow text-gold">Branch Filter</p>
+            <h3 className="text-[15px] font-semibold text-ink">
+              {adminBranch === "ALL"
+                ? "All Chapters Combined"
+                : adminBranch === "MADURAI"
+                  ? "Madurai Chapter Collaborators"
+                  : "Chennai Chapter Collaborators"}
+            </h3>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-surface p-1 shadow-inner">
+          <button
+            type="button"
+            onClick={() => setAdminBranch("ALL")}
+            className={cn(
+              "rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-all cursor-pointer",
+              adminBranch === "ALL"
+                ? "bg-gold text-[color:var(--color-gold-ink)] shadow"
+                : "text-ink-3 hover:text-ink",
+            )}
+          >
+            🌐 All
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminBranch("MADURAI")}
+            className={cn(
+              "rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-all cursor-pointer",
+              adminBranch === "MADURAI"
+                ? "bg-gold text-[color:var(--color-gold-ink)] shadow"
+                : "text-ink-3 hover:text-ink",
+            )}
+          >
+            🏛️ Madurai
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminBranch("CHENNAI")}
+            className={cn(
+              "rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-all cursor-pointer",
+              adminBranch === "CHENNAI"
+                ? "bg-gold text-[color:var(--color-gold-ink)] shadow"
+                : "text-ink-3 hover:text-ink",
+            )}
+          >
+            🌊 Chennai
+          </button>
+        </div>
+      </div>
 
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -152,6 +216,13 @@ export function ManageCollaborators() {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-[15px] font-semibold text-ink">{c.name}</span>
                           <Badge color={tier.tint}>{tier.label}</Badge>
+                          <Badge color="var(--color-gold)">
+                            {c.branch === "CHENNAI"
+                              ? "🌊 Chennai"
+                              : c.branch === "ALL"
+                                ? "🌐 Both Chapters"
+                                : "🏛️ Madurai"}
+                          </Badge>
                         </div>
                         {c.website && (
                           <a
@@ -273,6 +344,7 @@ function CollaboratorModal({
     blurb: "",
     website: "",
     tier: "PARTNER" as CollaboratorTier,
+    branch: "MADURAI",
     logo_url: "",
     sort_order: "0",
   });
@@ -291,6 +363,7 @@ function CollaboratorModal({
             blurb: editing.blurb ?? "",
             website: editing.website ?? "",
             tier: editing.tier as CollaboratorTier,
+            branch: editing.branch ?? "MADURAI",
             logo_url: editing.logo_url ?? "",
             sort_order: String(editing.sort_order),
           }
@@ -299,6 +372,7 @@ function CollaboratorModal({
             blurb: "",
             website: "",
             tier: "PARTNER",
+            branch: "MADURAI",
             logo_url: "",
             sort_order: String(nextOrder),
           },
@@ -336,6 +410,7 @@ function CollaboratorModal({
           blurb: form.blurb.trim(),
           website: form.website.trim(),
           tier: form.tier,
+          branch: form.branch,
           sort_order: Number.isFinite(order) ? order : 0,
           logoFile: logo ?? undefined,
           // Skipped when a new file is uploaded — the file wins server-side,
@@ -349,6 +424,7 @@ function CollaboratorModal({
           blurb: form.blurb.trim() || undefined,
           website: form.website.trim() || undefined,
           tier: form.tier,
+          branch: form.branch,
           sort_order: Number.isFinite(order) ? order : nextOrder,
           logoFile: logo ?? undefined,
           logo_url: logo ? undefined : form.logo_url.trim() || undefined,
@@ -434,19 +510,33 @@ function CollaboratorModal({
           </Field>
         </div>
 
-        <Field
-          label="Sort order"
-          htmlFor="co-order"
-          hint="Lowest first in the scroller. Ties fall back to alphabetical."
-        >
-          <Input
-            id="co-order"
-            type="number"
-            value={form.sort_order}
-            onChange={set("sort_order")}
-            inputMode="numeric"
-          />
-        </Field>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field
+            label="Chapter"
+            htmlFor="co-branch"
+            hint="Choose whether this partner appears in Madurai, Chennai, or Both Chapters."
+          >
+            <Select id="co-branch" value={form.branch} onChange={set("branch")}>
+              <option value="MADURAI">🏛️ Madurai Chapter Only</option>
+              <option value="CHENNAI">🌊 Chennai Chapter Only</option>
+              <option value="ALL">🌐 Both Chapters (Club-Wide)</option>
+            </Select>
+          </Field>
+
+          <Field
+            label="Sort order"
+            htmlFor="co-order"
+            hint="Lowest first in the scroller. Ties fall back to alphabetical."
+          >
+            <Input
+              id="co-order"
+              type="number"
+              value={form.sort_order}
+              onChange={set("sort_order")}
+              inputMode="numeric"
+            />
+          </Field>
+        </div>
 
         {/* Logo */}
         <div>

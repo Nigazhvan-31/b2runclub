@@ -44,7 +44,7 @@ interface TurnoutRow {
 
 export function AdminDashboard() {
   const { adminBranch, setAdminBranch } = useBranch();
-  const loadFinance = useCallback(() => api.financialOverview(), []);
+  const loadFinance = useCallback(() => api.financialOverview(adminBranch), [adminBranch]);
   const loadEvents = useCallback(() => api.events(), []);
   const loadPolls = useCallback(() => api.polls(), []);
 

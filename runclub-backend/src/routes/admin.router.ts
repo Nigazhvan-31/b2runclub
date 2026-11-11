@@ -18,9 +18,12 @@ const router = Router();
 // 1. Financial Overview (Admin only)
 router.get("/financial-overview", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+        const branch = (req.query.branch as string)?.toUpperCase();
+        const eventBranchFilter = branch && branch !== "ALL" ? { event: { branch } } : {};
+
         // Total revenue from PAID registrations
         const paidRegistrations = await prisma.eventRegistration.findMany({
-            where: { status: "PAID" },
+            where: { status: "PAID", ...eventBranchFilter },
             include: { event: true },
         }) as any;
 
@@ -28,20 +31,20 @@ router.get("/financial-overview", requireRole(["ADMIN"]), async (req: AuthReques
            A party of three paid three entries, and summing the event price
            counted it once — so revenue read low by exactly the guests. */
         const totalRevenue =
-            (paidRegistrations as any[]).reduce((sum, reg) => sum + reg.amount_due_paise, 0) / 100;
+            (paidRegistrations as any[]).reduce((sum, reg) => sum + (reg.amount_due_paise || 0), 0) / 100;
 
         const pendingCounts = await prisma.eventRegistration.count({
-            where: { status: "PENDING" },
+            where: { status: "PENDING", ...eventBranchFilter },
         });
 
         const paidCounts = paidRegistrations.length;
 
         const failedCounts = await prisma.eventRegistration.count({
-            where: { status: "FAILED" },
+            where: { status: "FAILED", ...eventBranchFilter },
         });
 
         const freeCounts = await prisma.eventRegistration.count({
-            where: { status: "FREE" },
+            where: { status: "FREE", ...eventBranchFilter },
         });
 
         /*
@@ -53,12 +56,12 @@ router.get("/financial-overview", requireRole(["ADMIN"]), async (req: AuthReques
          * getting in.
          */
         const peopleCount = await prisma.registrationGuest.count({
-            where: { registration: { blocked_at: null } },
+            where: { registration: { blocked_at: null, ...eventBranchFilter } },
         });
 
         // Of those, the ones who can actually be scanned at the start line.
         const peopleTicketReady = await prisma.registrationGuest.count({
-            where: { registration: { blocked_at: null, status: { in: ["PAID", "FREE"] } } },
+            where: { registration: { blocked_at: null, status: { in: ["PAID", "FREE"] }, ...eventBranchFilter } },
         });
 
         res.json({
@@ -255,9 +258,14 @@ router.get("/rosters/export", requireRole(["ADMIN"]), async (_req: AuthRequest, 
  * answers "who is in the club". Both were asked for, and merging them would
  * mean one file that is wrong for both jobs.
  */
-router.get("/members/export", requireRole(["ADMIN"]), async (_req: AuthRequest, res: Response): Promise<void> => {
+// 2c. The whole membership as a spreadsheet (Admin only).
+router.get("/members/export", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+        const branch = (req.query.branch as string)?.toUpperCase();
+        const branchFilter = branch && branch !== "ALL" ? { branch } : {};
+
         const members = (await prisma.user.findMany({
+            where: branchFilter,
             orderBy: { name: "asc" },
             include: {
                 registrations: {
@@ -267,19 +275,17 @@ router.get("/members/export", requireRole(["ADMIN"]), async (_req: AuthRequest, 
         })) as any[];
 
         const rows = members.map((u) => {
-            /* Counted here rather than in SQL because the same three numbers
-               are wanted per member and the membership is in the hundreds, not
-               the millions. A groupBy would be faster and much harder to read. */
             const live = u.registrations.filter(
                 (r: any) => !r.blocked_at && (r.status === "PAID" || r.status === "FREE"),
             );
-            const paisePaid = live.reduce((sum: number, r: any) => sum + r.amount_due_paise, 0);
+            const paisePaid = live.reduce((sum: number, r: any) => sum + (r.amount_due_paise || 0), 0);
 
             return [
                 u.name,
                 u.email,
                 u.phone ?? "",
                 u.emergency_contact ?? "",
+                u.branch || "MADURAI",
                 u.role,
                 u.email_verified_at ? "Verified" : "Not verified",
                 formatSheetDateTime(u.email_verified_at),
@@ -291,13 +297,14 @@ router.get("/members/export", requireRole(["ADMIN"]), async (_req: AuthRequest, 
         });
 
         await sendWorkbook(res, {
-            filename: "b2-club-members.xlsx",
+            filename: `b2-club-members${branch && branch !== "ALL" ? `-${branch.toLowerCase()}` : ""}.xlsx`,
             sheetName: "Members",
             columns: [
                 { header: "Name", width: 26 },
                 { header: "Email", width: 30 },
                 { header: "Mobile", width: 18 },
                 { header: "Emergency contact", width: 20 },
+                { header: "Chapter", width: 14 },
                 { header: "Role", width: 12 },
                 { header: "Email status", width: 14 },
                 { header: "Verified on", width: 18 },
@@ -749,6 +756,9 @@ router.post("/mailer/test", requireRole(["ADMIN"]), async (req: AuthRequest, res
 // contact detail an organiser actually needs on event day.
 router.get("/members", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+        const branch = (req.query.branch as string)?.toUpperCase();
+        const branchFilter = branch && branch !== "ALL" ? { branch } : {};
+
         /**
          * The full directory: everyone, every role, with the history an organiser
          * needs to make a decision about a person — do they turn up, have they paid,
@@ -763,12 +773,14 @@ router.get("/members", requireRole(["ADMIN"]), async (req: AuthRequest, res: Res
          */
         const [members, registrations, results, shifts] = await Promise.all([
             prisma.user.findMany({
+                where: branchFilter,
                 orderBy: [{ role: "asc" }, { name: "asc" }],
                 select: {
                     id: true,
                     name: true,
                     email: true,
                     role: true,
+                    branch: true,
                     created_at: true,
                     emergency_contact: true,
                     _count: { select: { registrations: true } },
@@ -861,6 +873,7 @@ router.get("/members", requireRole(["ADMIN"]), async (req: AuthRequest, res: Res
                     name: m.name,
                     email: m.email,
                     role: m.role,
+                    branch: m.branch || "MADURAI",
                     created_at: m.created_at,
                     emergency_contact: m.emergency_contact,
                     has_emergency_contact: Boolean(m.emergency_contact),
@@ -957,7 +970,7 @@ router.put("/members/:id/role", requireRole(["ADMIN"]), async (req: AuthRequest,
             where: { id: userId },
             // Explicit select: findUnique would otherwise include password_hash,
             // and this object is echoed back in the response below.
-            select: { id: true, name: true, email: true, role: true },
+            select: { id: true, name: true, email: true, role: true, branch: true },
         });
         if (!target) {
             res.status(404).json({ error: "Member not found" });
@@ -969,9 +982,14 @@ router.put("/members/:id/role", requireRole(["ADMIN"]), async (req: AuthRequest,
             return;
         }
 
-        if (target.role === role) {
+        const { branch } = req.body;
+        const validBranch = branch && ["MADURAI", "CHENNAI"].includes(branch.toUpperCase())
+            ? branch.toUpperCase()
+            : undefined;
+
+        if (target.role === role && (!validBranch || target.branch === validBranch)) {
             res.json({
-                message: `${target.name} is already a ${role.toLowerCase()}`,
+                message: `${target.name} is already a ${role.toLowerCase()}${validBranch ? ` in ${validBranch}` : ""}`,
                 user: target,
                 changed: false,
             });
@@ -980,10 +998,15 @@ router.put("/members/:id/role", requireRole(["ADMIN"]), async (req: AuthRequest,
 
         const previousRole = target.role;
 
+        const updateData: any = { role };
+        if (validBranch) {
+            updateData.branch = validBranch;
+        }
+
         const updated = await prisma.user.update({
             where: { id: userId },
-            data: { role },
-            select: { id: true, name: true, email: true, role: true },
+            data: updateData,
+            select: { id: true, name: true, email: true, role: true, branch: true },
         });
 
         // Tell the person what changed, and what it means for them.
@@ -991,7 +1014,7 @@ router.put("/members/:id/role", requireRole(["ADMIN"]), async (req: AuthRequest,
             role === "BLOCKED"
                 ? "Your account has been blocked by an organiser. Please contact the club."
                 : role === "VOLUNTEER"
-                  ? `You're now a club volunteer. Marshal an event and your entry is comped — future registrations are free.`
+                  ? `You're now a club volunteer for ${updated.branch} chapter. Marshal an event and your entry is comped — future registrations are free.`
                   : previousRole === "VOLUNTEER"
                     ? `Your club role is now ${role.toLowerCase()}. Volunteer comped entry no longer applies.`
                     : `Your club role is now ${role.toLowerCase()}.`;
@@ -1001,13 +1024,33 @@ router.put("/members/:id/role", requireRole(["ADMIN"]), async (req: AuthRequest,
         });
 
         res.json({
-            message: `${updated.name} is now ${role === "BLOCKED" ? "blocked" : `a ${role.toLowerCase()}`}`,
+            message: `${updated.name} is now ${role === "BLOCKED" ? "blocked" : `a ${role.toLowerCase()}`} in ${updated.branch} chapter`,
             user: updated,
             previous_role: previousRole,
             changed: true,
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message || "Failed to change role" });
+    }
+});
+
+// 4a. Update a member's branch / chapter directly (Admin only)
+router.put("/members/:id/branch", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const userId = req.params.id as string;
+        const { branch } = req.body;
+        if (!branch || !["MADURAI", "CHENNAI"].includes(branch.toUpperCase())) {
+            res.status(400).json({ error: "Branch must be MADURAI or CHENNAI" });
+            return;
+        }
+        const updated = await prisma.user.update({
+            where: { id: userId },
+            data: { branch: branch.toUpperCase() },
+            select: { id: true, name: true, email: true, role: true, branch: true },
+        });
+        res.json({ message: `Branch updated to ${updated.branch}`, user: updated });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message || "Failed to update member branch" });
     }
 });
 

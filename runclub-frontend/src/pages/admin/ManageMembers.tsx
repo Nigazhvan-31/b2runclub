@@ -23,8 +23,9 @@ import {
 } from "../../components/ui";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { matchesBranch, useBranch } from "../../lib/branch";
 import { ROLE_META, cn, eventDate, fullDate, inr } from "../../lib/format";
-import type { AssignableRole, Member, MemberActivity } from "../../lib/types";
+import type { AssignableRole, Branch, Member, MemberActivity } from "../../lib/types";
 import { MARSHAL_MIN_SESSIONS } from "../../lib/policies";
 import { useFetch } from "../../lib/useFetch";
 
@@ -76,14 +77,15 @@ function Detail({
 
 export function ManageMembers() {
   const { user } = useAuth();
+  const { adminBranch, setAdminBranch } = useBranch();
   const toast = useToast();
 
-  const load = useCallback(() => api.members(), []);
+  const load = useCallback(() => api.members(adminBranch), [adminBranch]);
   const { data, loading, error, reload, setData } = useFetch(load);
 
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
-  const [pending, setPending] = useState<{ member: Member; role: AssignableRole } | null>(null);
+  const [pending, setPending] = useState<{ member: Member; role: AssignableRole; branch?: Branch } | null>(null);
   const [deleting, setDeleting] = useState<Member | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   /** Which row has its full detail panel open. */
@@ -108,16 +110,12 @@ export function ManageMembers() {
   };
 
   /**
-   * The whole directory as a spreadsheet.
-   *
-   * Built by the server rather than from the rows on screen: this page filters
-   * and paginates, and an export that silently honoured the current search
-   * would hand somebody a partial list they believed was complete.
+   * The directory as a spreadsheet.
    */
   const exportMembers = async () => {
     setExporting(true);
     try {
-      await api.membersWorkbook();
+      await api.membersWorkbook(adminBranch);
       toast("Member list exported.", "ok");
     } catch (err) {
       toast(err instanceof Error ? err.message : "Export failed", "err");
@@ -126,7 +124,10 @@ export function ManageMembers() {
     }
   };
 
-  const members = data ?? [];
+  const members = useMemo(
+    () => (data ?? []).filter((m) => matchesBranch(m, adminBranch)),
+    [data, adminBranch],
+  );
 
   const counts = useMemo(
     () => ({
@@ -155,9 +156,13 @@ export function ManageMembers() {
     if (!pending) return;
     setBusy(true);
     try {
-      const res = await api.setMemberRole(pending.member.id, pending.role);
+      const res = await api.setMemberRole(pending.member.id, pending.role, pending.branch);
       setData((prev) =>
-        (prev ?? []).map((m) => (m.id === pending.member.id ? { ...m, role: pending.role } : m)),
+        (prev ?? []).map((m) =>
+          m.id === pending.member.id
+            ? { ...m, role: pending.role, branch: pending.branch || m.branch }
+            : m,
+        ),
       );
       if (res.changed && pending.role === "VOLUNTEER") {
         setCelebrate(true);
@@ -197,6 +202,64 @@ export function ManageMembers() {
       />
 
       {/* Roll-up */}
+      {/* Chapter Filter Selector: All | Madurai | Chennai */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-surface-2/70 p-4 shadow-lg backdrop-blur-md">
+        <div className="flex items-center gap-2.5">
+          <span className="grid size-9 place-items-center rounded-xl bg-gold/15 text-lg text-gold">
+            {adminBranch === "ALL" ? "🌐" : adminBranch === "MADURAI" ? "🏛️" : "🌊"}
+          </span>
+          <div>
+            <p className="eyebrow text-gold">Branch Filter</p>
+            <h3 className="text-[15px] font-semibold text-ink">
+              {adminBranch === "ALL"
+                ? "All Chapters Combined"
+                : adminBranch === "MADURAI"
+                  ? "Madurai Chapter Members"
+                  : "Chennai Chapter Members"}
+            </h3>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-surface p-1 shadow-inner">
+          <button
+            type="button"
+            onClick={() => setAdminBranch("ALL")}
+            className={cn(
+              "rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-all cursor-pointer",
+              adminBranch === "ALL"
+                ? "bg-gold text-[color:var(--color-gold-ink)] shadow"
+                : "text-ink-3 hover:text-ink",
+            )}
+          >
+            🌐 All
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminBranch("MADURAI")}
+            className={cn(
+              "rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-all cursor-pointer",
+              adminBranch === "MADURAI"
+                ? "bg-gold text-[color:var(--color-gold-ink)] shadow"
+                : "text-ink-3 hover:text-ink",
+            )}
+          >
+            🏛️ Madurai
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminBranch("CHENNAI")}
+            className={cn(
+              "rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-all cursor-pointer",
+              adminBranch === "CHENNAI"
+                ? "bg-gold text-[color:var(--color-gold-ink)] shadow"
+                : "text-ink-3 hover:text-ink",
+            )}
+          >
+            🌊 Chennai
+          </button>
+        </div>
+      </div>
+
       {!loading && !error && members.length > 0 && (
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatTile
@@ -317,6 +380,9 @@ export function ManageMembers() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[15px] font-semibold text-ink">{m.name}</span>
                         <Badge color={ROLE_TINT[m.role]}>{meta.label}</Badge>
+                        <Badge color="var(--color-gold)">
+                          {(m.branch as string) === "CHENNAI" ? "🌊 Chennai" : "🏛️ Madurai"}
+                        </Badge>
                         {m.role === "VOLUNTEER" && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--color-free)]/12 px-2 py-0.5">
                             <SparkIcon className="size-3 text-[color:var(--color-free)]" />
@@ -507,6 +573,49 @@ export function ManageMembers() {
             <p className="text-[13.5px] leading-relaxed text-ink-2">
               {ROLE_EXPLAINER[pending.role]}
             </p>
+
+            {/* Chapter Assignment */}
+            <div className="rounded-xl border border-white/10 bg-surface p-3.5 space-y-2">
+              <div className="text-[12px] font-semibold text-ink flex items-center justify-between">
+                <span>Assigned Chapter:</span>
+                <span className="text-gold font-normal text-[11px]">
+                  {(pending.branch || pending.member.branch || "MADURAI") === "CHENNAI"
+                    ? "🌊 Chennai Chapter"
+                    : "🏛️ Madurai Chapter"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPending({ ...pending, branch: "MADURAI" })}
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-xs font-semibold transition-all cursor-pointer",
+                    (pending.branch || pending.member.branch || "MADURAI") === "MADURAI"
+                      ? "border-gold bg-gold/15 text-gold"
+                      : "border-white/10 bg-white/5 text-ink-3 hover:text-ink",
+                  )}
+                >
+                  🏛️ Madurai Chapter
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPending({ ...pending, branch: "CHENNAI" })}
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-xs font-semibold transition-all cursor-pointer",
+                    (pending.branch || pending.member.branch) === "CHENNAI"
+                      ? "border-sky-400 bg-sky-500/15 text-sky-300"
+                      : "border-white/10 bg-white/5 text-ink-3 hover:text-ink",
+                  )}
+                >
+                  🌊 Chennai Chapter
+                </button>
+              </div>
+              <p className="text-[11px] text-ink-3 leading-relaxed">
+                {pending.role === "VOLUNTEER"
+                  ? `Promoting this member will assign them as a volunteer specifically for the ${(pending.branch || pending.member.branch || "MADURAI") === "CHENNAI" ? "Chennai" : "Madurai"} chapter.`
+                  : `This member's home chapter is ${(pending.branch || pending.member.branch || "MADURAI") === "CHENNAI" ? "Chennai" : "Madurai"}.`}
+              </p>
+            </div>
 
             {/* The one genuinely surprising bit: history is not rewritten. */}
             {pending.member.registration_count > 0 && pending.role !== "BLOCKED" && (

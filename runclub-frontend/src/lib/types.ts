@@ -323,6 +323,7 @@ export interface Member {
   name: string;
   email: string;
   role: Role;
+  branch?: Branch;
   created_at: string;
   /** The actual number — organisers need it on event day. Admin-only route. */
   emergency_contact: string | null;
@@ -453,6 +454,7 @@ export interface Collaborator {
   logo_url: string | null;
   website: string | null;
   tier: CollaboratorTier;
+  branch?: string;
   sort_order: number;
   created_at: string;
 }

@@ -186,6 +186,7 @@ model Photo {
   // Optional tie to an event, so the gallery can be grouped by session.
   event_id    String?
   event       Event?   @relation(fields: [event_id], references: [id])
+  branch      String   @default("MADURAI")
   created_at  DateTime @default(now())
 
   uploader_id String
@@ -227,6 +228,7 @@ model Collaborator {
   logo_url   String?
   website    String?
   tier       String   @default("PARTNER") // PARTNER, SPONSOR, COMMUNITY
+  branch     String   @default("MADURAI") // MADURAI, CHENNAI, ALL
   sort_order Int      @default(0)
   created_at DateTime @default(now())
 }

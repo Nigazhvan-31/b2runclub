@@ -1,5 +1,6 @@
 import type {
   AssignableRole,
+  Branch,
   CheckInResult,
   Checkpoint,
   ClubEvent,
@@ -641,13 +642,19 @@ export const api = {
       body: input,
     }),
 
-  collaborators: () => request<Collaborator[]>("/api/content/collaborators"),
+  collaborators: (branch?: string) =>
+    request<Collaborator[]>(
+      branch && branch !== "ALL"
+        ? `/api/content/collaborators?branch=${encodeURIComponent(branch)}`
+        : "/api/content/collaborators",
+    ),
 
   addCollaborator: (input: {
     name: string;
     blurb?: string;
     website?: string;
     tier?: CollaboratorTier;
+    branch?: string;
     sort_order?: number;
     logoFile?: File;
     logo_url?: string;
@@ -657,6 +664,7 @@ export const api = {
     if (input.blurb) form.append("blurb", input.blurb);
     if (input.website) form.append("website", input.website);
     if (input.tier) form.append("tier", input.tier);
+    if (input.branch) form.append("branch", input.branch);
     if (input.sort_order !== undefined) form.append("sort_order", String(input.sort_order));
     if (input.logoFile) form.append("logo", input.logoFile);
     if (input.logo_url) form.append("logo_url", input.logo_url);
@@ -678,6 +686,7 @@ export const api = {
       blurb?: string;
       website?: string;
       tier?: CollaboratorTier;
+      branch?: string;
       sort_order?: number;
       logoFile?: File;
       logo_url?: string;
@@ -688,6 +697,7 @@ export const api = {
     if (input.blurb !== undefined) form.append("blurb", input.blurb);
     if (input.website !== undefined) form.append("website", input.website);
     if (input.tier !== undefined) form.append("tier", input.tier);
+    if (input.branch !== undefined) form.append("branch", input.branch);
     if (input.sort_order !== undefined) form.append("sort_order", String(input.sort_order));
     if (input.logoFile) form.append("logo", input.logoFile);
     if (input.logo_url !== undefined) form.append("logo_url", input.logo_url);
@@ -762,9 +772,19 @@ export const api = {
 
   /* ── admin ──────────────────────────────────────────────── */
 
-  financialOverview: () => request<FinancialOverview>("/api/admin/financial-overview"),
+  financialOverview: (branch?: string) =>
+    request<FinancialOverview>(
+      branch && branch !== "ALL"
+        ? `/api/admin/financial-overview?branch=${encodeURIComponent(branch)}`
+        : "/api/admin/financial-overview",
+    ),
 
-  members: () => request<Member[]>("/api/admin/members"),
+  members: (branch?: string) =>
+    request<Member[]>(
+      branch && branch !== "ALL"
+        ? `/api/admin/members?branch=${encodeURIComponent(branch)}`
+        : "/api/admin/members",
+    ),
 
   /** Reminder schedule + delivery status for one event (admin). */
   eventReminders: (eventId: string) =>
@@ -803,13 +823,20 @@ export const api = {
     ),
 
   /** Promote/demote a member. The backend refuses ADMIN and self-changes. */
-  setMemberRole: (id: string, role: AssignableRole) =>
+  setMemberRole: (id: string, role: AssignableRole, branch?: Branch) =>
     request<{
       message: string;
       user: User;
       previous_role?: Role;
       changed: boolean;
-    }>(`/api/admin/members/${id}/role`, { method: "PUT", body: { role } }),
+    }>(`/api/admin/members/${id}/role`, { method: "PUT", body: { role, branch } }),
+
+  /** Update a member's chapter assignment directly (Madurai or Chennai). */
+  setMemberBranch: (id: string, branch: Branch) =>
+    request<{
+      message: string;
+      user: User;
+    }>(`/api/admin/members/${id}/branch`, { method: "PUT", body: { branch } }),
 
   /** Permanently remove/delete a member from the club (Admin only). */
   deleteMember: (id: string) =>
@@ -878,7 +905,12 @@ export const api = {
   allRostersWorkbook: () => downloadFile("/api/admin/rosters/export"),
 
   /** The whole membership as a workbook. */
-  membersWorkbook: () => downloadFile("/api/admin/members/export"),
+  membersWorkbook: (branch?: string) =>
+    downloadFile(
+      branch && branch !== "ALL"
+        ? `/api/admin/members/export?branch=${encodeURIComponent(branch)}`
+        : "/api/admin/members/export",
+    ),
 
   /**
    * Refund a paid entry (admin). The registration is kept with `refunded_at` set

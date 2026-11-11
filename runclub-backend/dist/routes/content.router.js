@@ -195,14 +195,18 @@ router.post("/uploads/video", (0, auth_1.requireRole)(["ADMIN"]), (req, res) => 
 router.get("/gallery", async (req, res) => {
     try {
         const eventId = typeof req.query.event_id === "string" ? req.query.event_id : undefined;
+        const branch = req.query.branch?.toUpperCase();
+        const branchFilter = branch && branch !== "ALL"
+            ? { OR: [{ event: { branch } }, { event_id: null, branch }] }
+            : {};
         const photos = await prisma_1.default.photo.findMany({
-            where: eventId ? { event_id: eventId } : {},
+            where: eventId ? { event_id: eventId } : branchFilter,
             orderBy: { created_at: "desc" },
             include: {
                 uploader: { select: { id: true, name: true, role: true } },
                 // Carried so the gallery can label its "by event" filter without
                 // a second request per tagged event.
-                event: { select: { title: true } },
+                event: { select: { title: true, branch: true } },
             },
         });
         res.json(photos.map((p) => ({
@@ -211,6 +215,7 @@ router.get("/gallery", async (req, res) => {
             caption: p.caption,
             event_id: p.event_id,
             event_title: p.event?.title ?? null,
+            branch: p.event?.branch ?? p.branch ?? "MADURAI",
             created_at: p.created_at,
             uploader: p.uploader,
         })));
@@ -444,9 +449,14 @@ router.put("/club", (0, auth_1.requireRole)(["ADMIN"]), async (req, res) => {
  */
 const TIERS = ["PARTNER", "SPONSOR", "COMMUNITY", "FEATURED"];
 // 6. List collaborators — public, drives the home page scroller.
-router.get("/collaborators", async (_req, res) => {
+router.get("/collaborators", async (req, res) => {
     try {
+        const branch = req.query.branch?.toUpperCase();
+        const where = branch && branch !== "ALL"
+            ? { branch: { in: ["ALL", branch] } }
+            : {};
         const rows = await prisma_1.default.collaborator.findMany({
+            where,
             orderBy: [{ sort_order: "asc" }, { name: "asc" }],
         });
         res.json(rows);
@@ -464,7 +474,7 @@ router.post("/collaborators", (0, auth_1.requireRole)(["ADMIN"]), (req, res) => 
                 return;
             }
             const file = req.file;
-            const { name, blurb, website, tier, sort_order, logo_url } = req.body ?? {};
+            const { name, blurb, website, tier, sort_order, logo_url, branch } = req.body ?? {};
             if (!name?.trim()) {
                 res.status(400).json({ error: "A collaborator name is required" });
                 return;
@@ -474,17 +484,21 @@ router.post("/collaborators", (0, auth_1.requireRole)(["ADMIN"]), (req, res) => 
                 res.status(400).json({ error: `Tier must be one of: ${TIERS.join(", ")}` });
                 return;
             }
+            const finalBranch = branch && ["MADURAI", "CHENNAI", "ALL"].includes(branch.toUpperCase())
+                ? branch.toUpperCase()
+                : "MADURAI";
             const collaborator = await prisma_1.default.collaborator.create({
                 data: {
                     name: name.trim(),
                     blurb: blurb?.trim() || "",
                     website: website?.trim() || null,
                     tier: finalTier,
+                    branch: finalBranch,
                     sort_order: Number.parseInt(sort_order, 10) || 0,
                     logo_url: file ? await storeImage(file) : logo_url?.trim() || null,
                 },
             });
-            res.status(211).json({ message: `${collaborator.name} added`, collaborator });
+            res.status(201).json({ message: `${collaborator.name} added`, collaborator });
         }
         catch (error) {
             res.status(500).json({ error: error.message || "Failed to add the collaborator" });
@@ -510,7 +524,7 @@ router.patch("/collaborators/:id", (0, auth_1.requireRole)(["ADMIN"]), (req, res
                 return;
             }
             const file = req.file;
-            const { name, blurb, website, tier, sort_order, logo_url } = req.body ?? {};
+            const { name, blurb, website, tier, sort_order, logo_url, branch } = req.body ?? {};
             // Present-but-empty is a real instruction to clear a field, so
             // these are distinguished by `undefined`, not by falsiness.
             const data = {};
@@ -532,6 +546,11 @@ router.patch("/collaborators/:id", (0, auth_1.requireRole)(["ADMIN"]), (req, res
                 }
                 data.tier = tier;
             }
+            if (branch !== undefined) {
+                if (["MADURAI", "CHENNAI", "ALL"].includes(String(branch).toUpperCase())) {
+                    data.branch = String(branch).toUpperCase();
+                }
+            }
             if (sort_order !== undefined) {
                 const n = Number.parseInt(String(sort_order), 10);
                 data.sort_order = Number.isFinite(n) ? n : 0;
@@ -544,7 +563,7 @@ router.patch("/collaborators/:id", (0, auth_1.requireRole)(["ADMIN"]), (req, res
                 data.logo_url = String(logo_url).trim() || null;
             const collaborator = await prisma_1.default.collaborator.update({
                 where: { id: existing.id },
-                data,
+                data: data,
             });
             // Only bin the previous upload once the row actually points elsewhere.
             if (replacedLogo && collaborator.logo_url !== replacedLogo) {
