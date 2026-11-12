@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { api } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { useBranch } from "../lib/branch";
 import { cn, instagramHandle, instagramHref } from "../lib/format";
 import { DUR, EASE, useCalmMotion } from "../lib/motion";
@@ -44,8 +45,9 @@ function Monogram({ name }: { name: string }) {
  * on a fresh install.
  */
 export function FeaturedPartners() {
+  const { user } = useAuth();
   const { branch } = useBranch();
-  const load = useCallback(() => api.collaborators(branch), [branch]);
+  const load = useCallback(() => api.collaborators(user ? branch : undefined), [user, branch]);
   const { data, loading } = useFetch(load);
   const [logoErrors, setLogoErrors] = useState<Record<string, boolean>>({});
 
@@ -170,8 +172,9 @@ export function FeaturedPartners() {
  * Hovering a card pulls it toward the viewer and raises its shout-out.
  */
 export function CollaboratorScroller() {
+  const { user } = useAuth();
   const { branch } = useBranch();
-  const load = useCallback(() => api.collaborators(branch), [branch]);
+  const load = useCallback(() => api.collaborators(user ? branch : undefined), [user, branch]);
   const { data, loading } = useFetch(load);
   const calm = useCalmMotion();
   const [active, setActive] = useState<Collaborator | null>(null);

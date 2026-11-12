@@ -34,7 +34,7 @@ const isOpen = (e: ClubEvent) => e.status === "PUBLISHED" && !isPast(e.date_time
 
 export function Events() {
   const { isAdmin, canRegister } = useAuth();
-  const { branch, setBranch } = useBranch();
+  const { branch } = useBranch();
 
   const loadEvents = useCallback(() => api.events(), []);
   const { data: events, loading, error, reload } = useFetch(loadEvents);
@@ -161,7 +161,6 @@ export function Events() {
       {/* Chapter Indicator */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-surface-2/60 px-4 py-3 text-[13px] text-ink-2 shadow-sm">
         <div className="flex items-center gap-2">
-          {branch === "MADURAI" && <span className="text-base">🏛️</span>}
           <span>
             Showing runs for{" "}
             <strong className="text-gold font-semibold">
@@ -169,15 +168,12 @@ export function Events() {
             </strong>
           </span>
         </div>
-        {branch === "MADURAI" && (
-          <button
-            type="button"
-            onClick={() => setBranch("CHENNAI")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-gold/40 hover:bg-gold/10 hover:text-gold cursor-pointer"
-          >
-            <span>Switch to Chennai</span>
-          </button>
-        )}
+        <Link
+          to="/choose-chapter"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-medium text-ink transition-colors hover:border-gold/40 hover:bg-gold/10 hover:text-gold"
+        >
+          <span>Change Location</span>
+        </Link>
       </div>
 
       {/* Filters — one row above the grid */}

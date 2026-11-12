@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useBranch } from "../lib/branch";
 import { cn } from "../lib/format";
 import { PageScene } from "../components/scene3d";
@@ -7,10 +7,13 @@ import { PageScene } from "../components/scene3d";
 export function ChooseChapter() {
   const { branch, setBranch } = useBranch();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from;
 
   const handleSelect = (selected: "MADURAI" | "CHENNAI") => {
     setBranch(selected);
-    navigate("/events", { replace: true });
+    const target = from && from !== "/choose-chapter" && from !== "/login" && from !== "/signup" ? from : "/events";
+    navigate(target, { replace: true });
   };
 
   return (

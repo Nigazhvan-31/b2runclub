@@ -198,7 +198,7 @@ export function Signup() {
   const location = useLocation();
   const toast = useToast();
 
-  const from = (location.state as { from?: string } | null)?.from ?? "/events";
+  const from = (location.state as { from?: string } | null)?.from ?? "/choose-chapter";
 
   if (ready && user) {
     return <Navigate to={user.role === "ADMIN" ? "/admin" : "/choose-chapter"} replace />;

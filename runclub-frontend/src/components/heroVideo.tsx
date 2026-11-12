@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { useBranch } from "../lib/branch";
 import { useCalmMotion } from "../lib/motion";
 import { useFetch } from "../lib/useFetch";
@@ -36,15 +37,19 @@ export function HeroVideo({
   onAspect?: (ratio: number) => void;
 } = {}) {
   const calm = useCalmMotion();
+  const { user } = useAuth();
   const { branch } = useBranch();
   const load = useCallback(() => api.clubInfo(), []);
   const { data: club } = useFetch(load);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
 
-  // Chennai must NEVER fallback to Madurai's video. If Chennai has no video yet, return null.
-  const src = branch === "CHENNAI"
-    ? (club?.hero_video_url_chennai || null)
+  // Before login / on opening page, always keep the main club video so it's never blank.
+  // After login:
+  // - If Chennai: strictly use Chennai's video (club?.hero_video_url_chennai). If not yet uploaded, return null (never Madurai's video).
+  // - If Madurai: strictly use Madurai's video (club?.hero_video_url).
+  const src = user
+    ? (branch === "CHENNAI" ? (club?.hero_video_url_chennai || null) : (club?.hero_video_url || null))
     : (club?.hero_video_url || null);
   const kind = videoKind(src);
 
