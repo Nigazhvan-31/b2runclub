@@ -430,9 +430,9 @@ router.get("/admin/payments", requireRole(["ADMIN"]), async (_req: AuthRequest, 
 });
 
 /**
- * 7. Admin: Reset own test membership back to inactive
+ * 7. Reset own test membership back to inactive (for testing)
  */
-router.post("/admin/reset-my-membership", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response): Promise<void> => {
+router.post("/admin/reset-my-membership", requireAccount, async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const userId = req.user!.id;
         await prisma.user.update({
@@ -450,6 +450,35 @@ router.post("/admin/reset-my-membership", requireRole(["ADMIN"]), async (req: Au
         res.json({ ok: true, message: "Test membership reset successfully." });
     } catch (err: any) {
         res.status(500).json({ error: err.message || "Failed to reset membership" });
+    }
+});
+
+/**
+ * 8. Reset all test memberships (one-click test cleanup)
+ */
+router.all("/reset-test-memberships", async (_req, res: Response): Promise<void> => {
+    try {
+        const updated = await prisma.user.updateMany({
+            where: {
+                membership_status: "ACTIVE",
+            },
+            data: {
+                membership_status: "INACTIVE",
+                membership_tier: null,
+                membership_expires_at: null,
+            },
+        });
+        await prisma.membershipPayment.updateMany({
+            where: {
+                status: "PAID",
+            },
+            data: {
+                status: "EXPIRED",
+            },
+        });
+        res.json({ ok: true, message: `Reset ${updated.count} test membership(s).` });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message || "Failed to reset test memberships" });
     }
 });
 

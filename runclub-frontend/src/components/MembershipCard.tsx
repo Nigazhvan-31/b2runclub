@@ -9,7 +9,8 @@ import { Confetti } from "./motion";
 import { useCountdown } from "../lib/motion";
 import { fullDate } from "../lib/format";
 
-export const MEMBERSHIP_LAUNCH_DATE_ISO = "2026-12-20T00:00:00+05:30";
+export const NEW_YEAR_ISO = "2027-01-01T00:00:00+05:30";
+export const OPENS_DATE_ISO = "2026-12-20T00:00:00+05:30";
 
 export function MembershipCard() {
   const { user, isMembershipActive, refreshUser } = useAuth();
@@ -19,8 +20,11 @@ export function MembershipCard() {
   const [celebrate, setCelebrate] = useState(false);
   const [resetting, setResetting] = useState(false);
 
-  const countdown = useCountdown(MEMBERSHIP_LAUNCH_DATE_ISO);
-  const isLaunched = countdown.done;
+  // Live countdown to New Year 2027!
+  const countdown = useCountdown(NEW_YEAR_ISO);
+  // Live opening on 20 Dec 2026!
+  const opensCountdown = useCountdown(OPENS_DATE_ISO);
+  const isDec20Opened = opensCountdown.done;
 
   // The membership section only appears after logging in
   if (!user) return null;
@@ -30,7 +34,7 @@ export function MembershipCard() {
     try {
       await api.adminResetMyMembership();
       await refreshUser();
-      toast("Test membership reset! You are now previewing the runner countdown view.", "ok");
+      toast("Membership removed for this account! You can now test the countdown view.", "ok");
     } catch {
       toast("Could not reset test membership", "err");
     } finally {
@@ -121,16 +125,14 @@ export function MembershipCard() {
                     Valid until {fullDate(user.membership_expires_at)} · Renews every 30 days
                   </p>
                 )}
-                {user?.role === "ADMIN" && (
-                  <button
-                    type="button"
-                    onClick={handleResetTest}
-                    disabled={resetting}
-                    className="block text-[11px] text-ink-3 hover:text-gold transition-colors underline pt-1 text-left cursor-pointer"
-                  >
-                    {resetting ? "Resetting..." : "Admin: Reset test membership to preview countdown timer"}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={handleResetTest}
+                  disabled={resetting}
+                  className="block text-[11px] text-ink-3 hover:text-gold transition-colors underline pt-1 text-left cursor-pointer"
+                >
+                  {resetting ? "Removing..." : "Remove membership for this account (test runner view)"}
+                </button>
               </div>
               <Link
                 to="/events"
@@ -173,19 +175,19 @@ export function MembershipCard() {
               <div className="max-w-xl">
                 <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-gold shadow-sm">
                   <span className="inline-block size-1.5 rounded-full bg-gold animate-pulse" />
-                  {!isLaunched
-                    ? "Launching 20 December 2026 · Early Bird"
+                  {!isDec20Opened
+                    ? "2027 New Year Scheme · Opens 20 Dec"
                     : isRenewal
                       ? "Membership Expired · Renew for 30 Days"
-                      : "Early Bird Offer · Limited Slots"}
+                      : "2027 Early Bird Offer · Open Now"}
                 </div>
 
                 <h2 className="display mt-3 text-2xl font-bold sm:text-3xl lg:text-4xl text-ink tracking-tight">
-                  B² Club Monthly Membership
+                  B² Club 2027 New Year Membership
                 </h2>
 
                 <p className="mt-2 text-[14px] leading-relaxed text-ink-2">
-                  Unlock the full B² experience. Train with the community, race harder, and never pay per event again.
+                  Unlock the full B² experience for 2027. Train with the community, race harder, and never pay per event again.
                 </p>
 
                 {/* Pricing Display */}
@@ -199,11 +201,11 @@ export function MembershipCard() {
                   <span className="text-[14px] font-semibold text-ink-2">/ month</span>
                 </div>
 
-                {/* Countdown Timer (Visible until 20 Dec 2026) */}
-                {!isLaunched && (
+                {/* Live Countdown to New Year 2027 */}
+                {!countdown.done && (
                   <div className="mt-6">
                     <p className="eyebrow text-gold font-bold mb-2.5 flex items-center gap-1.5">
-                      <span>⏳</span> Early Bird Opens In:
+                      <span>🎉</span> Countdown to New Year 2027:
                     </p>
                     <div className="flex items-center gap-2 sm:gap-2.5">
                       <div className="flex flex-col items-center justify-center rounded-xl border border-gold/40 bg-surface-3/90 px-3 py-2 sm:px-4 sm:py-2.5 min-w-[56px] shadow-sm">
@@ -246,16 +248,16 @@ export function MembershipCard() {
                 )}
               </div>
 
-              {/* Right Column: CTA Box */}
+              {/* Right Column: CTA Box (Opens automatically on 20 Dec 2026) */}
               <div className="lg:min-w-[280px] flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-surface-3/80 p-6 text-center backdrop-blur-sm">
-                {!isLaunched ? (
+                {!isDec20Opened ? (
                   <div className="w-full space-y-3">
                     <div className="flex items-center justify-center gap-2 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3.5 text-sm font-bold text-gold shadow-sm">
                       <span className="text-base">🔒</span>
                       <span>Opens 20 Dec 2026</span>
                     </div>
                     <p className="text-xs text-ink-3 text-center leading-relaxed">
-                      Early Bird memberships unlock automatically on 20 December 2026.
+                      Early Bird memberships open automatically on 20 December 2026.
                     </p>
                     {user?.role === "ADMIN" && (
                       <div className="pt-2 border-t border-white/10">
