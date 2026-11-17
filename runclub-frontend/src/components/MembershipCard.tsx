@@ -3,20 +3,24 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
-import { openCheckout, isMockPayment } from "../lib/razorpay";
 import { Card, useToast } from "./ui";
 import { Confetti } from "./motion";
+import { useCountdown } from "../lib/motion";
 import { fullDate } from "../lib/format";
+
+export const TARGET_DATE_ISO = "2026-12-20T00:00:00+05:30";
 
 export function MembershipCard() {
   const { user, isMembershipActive, refreshUser } = useAuth();
   const toast = useToast();
 
-  const [busy, setBusy] = useState(false);
-  const [celebrate, setCelebrate] = useState(false);
+  const [celebrate] = useState(false);
   const [resetting, setResetting] = useState(false);
 
-  // The membership section only appears after logging in
+  // Live countdown to 20 December 2026
+  const countdown = useCountdown(TARGET_DATE_ISO);
+
+  // Only visible after logging in
   if (!user) return null;
 
   const handleResetTest = async () => {
@@ -29,66 +33,6 @@ export function MembershipCard() {
       toast("Could not reset test membership", "err");
     } finally {
       setResetting(false);
-    }
-  };
-
-  const handleJoin = async () => {
-    setBusy(true);
-    try {
-      // 1. Create membership order
-      const orderRes = await api.createMembershipOrder();
-
-      // If mock mode on dev without keys
-      if (orderRes.mock_mode || isMockPayment(orderRes.razorpay_key_id, orderRes.order_id)) {
-        const verifyRes = await api.verifyMembershipPayment({
-          razorpay_order_id: orderRes.order_id,
-          razorpay_payment_id: `pay_mock_${Date.now()}`,
-          razorpay_signature: "mock_signature",
-        });
-
-        await refreshUser();
-        setCelebrate(true);
-        toast(verifyRes.message || "Welcome to B² Membership!", "ok");
-        return;
-      }
-
-      // 2. Open live Razorpay overlay
-      const paymentResult = await openCheckout({
-        keyId: orderRes.razorpay_key_id,
-        orderId: orderRes.order_id,
-        amountPaise: orderRes.amount_paise,
-        eventTitle: "B² Club Monthly Membership",
-        description: "B² Club Monthly Membership — ₹599",
-        userName: user.name,
-        userEmail: user.email,
-        contact: user.phone,
-        notes: {
-          payment_type: "MEMBERSHIP",
-          product: "B² Club Monthly Membership",
-          member_name: user.name,
-          member_email: user.email,
-          member_phone: user.phone || "Not provided",
-        },
-      });
-
-      // 3. Verify signature on backend
-      const verifyRes = await api.verifyMembershipPayment({
-        razorpay_order_id: paymentResult.razorpay_order_id,
-        razorpay_payment_id: paymentResult.razorpay_payment_id,
-        razorpay_signature: paymentResult.razorpay_signature,
-      });
-
-      await refreshUser();
-      setCelebrate(true);
-      toast(verifyRes.message || "Membership activated! You now have free entry to all runs.", "ok");
-    } catch (err: any) {
-      if (err?.name === "CheckoutDismissed") {
-        toast("Payment cancelled.", "info");
-      } else {
-        toast(err?.message || "Could not complete membership payment", "err");
-      }
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -157,39 +101,76 @@ export function MembershipCard() {
               aria-hidden
             />
 
-            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-              {/* Left Column: Heading & Details */}
-              <div className="max-w-xl">
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              {/* Left Column: Coming Soon Heading & Subtitle */}
+              <div className="max-w-md">
                 <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-gold shadow-sm">
                   <span className="inline-block size-1.5 rounded-full bg-gold animate-pulse" />
                   Coming Soon
                 </div>
 
                 <h2 className="display mt-3 text-2xl font-bold sm:text-3xl lg:text-4xl text-ink tracking-tight">
-                  B² Club Membership
+                  Coming Soon
                 </h2>
 
                 <p className="mt-2 text-[14px] leading-relaxed text-ink-2">
-                  Unlock the full B² experience. Train with the community, race harder, and never pay per event again.
+                  Something big is dropping on 20 December 2026. Stay tuned.
                 </p>
               </div>
 
-              {/* Right Column: Clean Coming Soon Badge */}
-              <div className="sm:shrink-0 flex flex-col items-start sm:items-end">
-                <span className="inline-flex items-center gap-2 rounded-xl border border-gold/40 bg-gold/10 px-5 py-3 text-sm font-bold uppercase tracking-wider text-gold shadow-sm">
-                  <span className="text-base">✨</span>
-                  <span>Coming Soon</span>
-                </span>
-                {user?.role === "ADMIN" && (
-                  <button
-                    type="button"
-                    onClick={handleJoin}
-                    disabled={busy}
-                    className="mt-2 text-[11px] text-ink-3 hover:text-gold transition-colors underline cursor-pointer"
-                  >
-                    {busy ? "Processing..." : "Admin Test: Test Pay ₹599"}
-                  </button>
-                )}
+              {/* Right Column: Live Countdown to 20 Dec 2026 */}
+              <div className="shrink-0 flex flex-col items-start md:items-end">
+                <p className="eyebrow text-gold font-bold mb-2 flex items-center gap-1.5">
+                  <span>⏳</span> Dropping In:
+                </p>
+
+                <div className="flex items-center gap-2 sm:gap-2.5">
+                  {/* Days */}
+                  <div className="flex flex-col items-center justify-center rounded-xl border border-gold/40 bg-surface-3/90 px-3 py-2 sm:px-4 sm:py-2.5 min-w-[56px] shadow-sm">
+                    <span className="display text-xl sm:text-2xl font-bold text-gold tnum">
+                      {countdown.days}
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">
+                      Days
+                    </span>
+                  </div>
+
+                  <span className="text-gold font-bold text-lg">:</span>
+
+                  {/* Hours */}
+                  <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-surface-3/90 px-3 py-2 sm:px-4 sm:py-2.5 min-w-[56px] shadow-sm">
+                    <span className="display text-xl sm:text-2xl font-bold text-ink tnum">
+                      {String(countdown.hours).padStart(2, "0")}
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">
+                      Hours
+                    </span>
+                  </div>
+
+                  <span className="text-gold font-bold text-lg">:</span>
+
+                  {/* Minutes */}
+                  <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-surface-3/90 px-3 py-2 sm:px-4 sm:py-2.5 min-w-[56px] shadow-sm">
+                    <span className="display text-xl sm:text-2xl font-bold text-ink tnum">
+                      {String(countdown.minutes).padStart(2, "0")}
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">
+                      Mins
+                    </span>
+                  </div>
+
+                  <span className="text-gold font-bold text-lg">:</span>
+
+                  {/* Seconds */}
+                  <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-surface-3/90 px-3 py-2 sm:px-4 sm:py-2.5 min-w-[56px] shadow-sm">
+                    <span className="display text-xl sm:text-2xl font-bold text-ink-2 tnum">
+                      {String(countdown.seconds).padStart(2, "0")}
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">
+                      Secs
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </Card>

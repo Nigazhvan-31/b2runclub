@@ -45,39 +45,31 @@ export function Profile() {
         )}
       </Card>
 
-      {/* Membership Card */}
-      <Card className="mt-5 border border-gold/40 bg-gradient-to-br from-gold/[0.08] via-surface-2/80 to-surface-2 p-6 shadow-lg shadow-gold/5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="max-w-md">
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/15 px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider text-gold">
-              {isMembershipActive ? "★ Active Member" : "✨ Coming Soon"}
-            </div>
-            <h3 className="mt-2 text-lg font-bold text-ink">
-              {isMembershipActive
-                ? "B² Monthly Membership"
-                : "B² Club Membership"}
-            </h3>
-            <p className="mt-1 text-xs text-ink-3 leading-relaxed">
-              {isMembershipActive
-                ? user.membership_expires_at
+      {/* Membership Card (only visible for active members) */}
+      {isMembershipActive && (
+        <Card className="mt-5 border border-gold/40 bg-gradient-to-br from-gold/[0.08] via-surface-2/80 to-surface-2 p-6 shadow-lg shadow-gold/5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="max-w-md">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/15 px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider text-gold">
+                ★ Active Member
+              </div>
+              <h3 className="mt-2 text-lg font-bold text-ink">
+                B² Monthly Membership
+              </h3>
+              <p className="mt-1 text-xs text-ink-3 leading-relaxed">
+                {user.membership_expires_at
                   ? `Your membership is active and valid until ${fullDate(user.membership_expires_at)}. All weekly club runs are 100% free!`
-                  : "Your membership is active. All weekly club runs are 100% free!"
-                : "Unlock the full B² experience. Train with the community, race harder, and never pay per event again."}
-            </p>
-          </div>
-          <div>
-            {isMembershipActive ? (
+                  : "Your membership is active. All weekly club runs are 100% free!"}
+              </p>
+            </div>
+            <div>
               <span className="inline-flex items-center gap-1.5 rounded-xl bg-gold/20 px-3.5 py-2 text-xs font-bold text-gold border border-gold/30">
                 ✓ Free Event Passes Active
               </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-xl border border-gold/40 bg-gold/10 px-4 py-2 text-xs font-bold text-gold">
-                ✨ Coming Soon
-              </span>
-            )}
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {/* Location / Chapter */}
       <Card className="mt-5 p-6 border-white/10 bg-surface-2/60">
