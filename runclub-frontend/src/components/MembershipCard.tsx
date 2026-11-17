@@ -4,13 +4,9 @@ import { motion } from "framer-motion";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { openCheckout, isMockPayment } from "../lib/razorpay";
-import { Card, Button, useToast } from "./ui";
+import { Card, useToast } from "./ui";
 import { Confetti } from "./motion";
-import { useCountdown } from "../lib/motion";
 import { fullDate } from "../lib/format";
-
-export const NEW_YEAR_ISO = "2027-01-01T00:00:00+05:30";
-export const OPENS_DATE_ISO = "2026-12-20T00:00:00+05:30";
 
 export function MembershipCard() {
   const { user, isMembershipActive, refreshUser } = useAuth();
@@ -20,12 +16,6 @@ export function MembershipCard() {
   const [celebrate, setCelebrate] = useState(false);
   const [resetting, setResetting] = useState(false);
 
-  // Live countdown to New Year 2027!
-  const countdown = useCountdown(NEW_YEAR_ISO);
-  // Live opening on 20 Dec 2026!
-  const opensCountdown = useCountdown(OPENS_DATE_ISO);
-  const isDec20Opened = opensCountdown.done;
-
   // The membership section only appears after logging in
   if (!user) return null;
 
@@ -34,7 +24,7 @@ export function MembershipCard() {
     try {
       await api.adminResetMyMembership();
       await refreshUser();
-      toast("Membership removed for this account! You can now test the countdown view.", "ok");
+      toast("Membership removed for this account! You can now test the coming soon view.", "ok");
     } catch {
       toast("Could not reset test membership", "err");
     } finally {
@@ -50,7 +40,6 @@ export function MembershipCard() {
 
       // If mock mode on dev without keys
       if (orderRes.mock_mode || isMockPayment(orderRes.razorpay_key_id, orderRes.order_id)) {
-        // Direct simulation / verification
         const verifyRes = await api.verifyMembershipPayment({
           razorpay_order_id: orderRes.order_id,
           razorpay_payment_id: `pay_mock_${Date.now()}`,
@@ -94,7 +83,7 @@ export function MembershipCard() {
       toast(verifyRes.message || "Membership activated! You now have free entry to all runs.", "ok");
     } catch (err: any) {
       if (err?.name === "CheckoutDismissed") {
-        toast("Payment cancelled. You can activate your membership anytime.", "info");
+        toast("Payment cancelled.", "info");
       } else {
         toast(err?.message || "Could not complete membership payment", "err");
       }
@@ -147,8 +136,6 @@ export function MembershipCard() {
     );
   }
 
-  const isRenewal = Boolean(user?.membership_expires_at);
-
   return (
     <>
       <Confetti show={celebrate} />
@@ -170,128 +157,38 @@ export function MembershipCard() {
               aria-hidden
             />
 
-            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-              {/* Left Column: Heading, Perks, Details & Countdown */}
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+              {/* Left Column: Heading & Details */}
               <div className="max-w-xl">
                 <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-gold shadow-sm">
                   <span className="inline-block size-1.5 rounded-full bg-gold animate-pulse" />
-                  {!isDec20Opened
-                    ? "2027 New Year Scheme · Opens 20 Dec"
-                    : isRenewal
-                      ? "Membership Expired · Renew for 30 Days"
-                      : "2027 Early Bird Offer · Open Now"}
+                  Coming Soon
                 </div>
 
                 <h2 className="display mt-3 text-2xl font-bold sm:text-3xl lg:text-4xl text-ink tracking-tight">
-                  B² Club 2027 New Year Membership
+                  B² Club Membership
                 </h2>
 
                 <p className="mt-2 text-[14px] leading-relaxed text-ink-2">
-                  Unlock the full B² experience for 2027. Train with the community, race harder, and never pay per event again.
+                  Unlock the full B² experience. Train with the community, race harder, and never pay per event again.
                 </p>
-
-                {/* Pricing Display */}
-                <div className="mt-5 flex items-baseline gap-2.5">
-                  <span className="text-xl sm:text-2xl font-medium text-ink-3 line-through">
-                    ₹699
-                  </span>
-                  <span className="display text-4xl sm:text-5xl font-extrabold text-gold tracking-tight">
-                    ₹599
-                  </span>
-                  <span className="text-[14px] font-semibold text-ink-2">/ month</span>
-                </div>
-
-                {/* Live Countdown to New Year 2027 */}
-                {!countdown.done && (
-                  <div className="mt-6">
-                    <p className="eyebrow text-gold font-bold mb-2.5 flex items-center gap-1.5">
-                      <span>🎉</span> Countdown to New Year 2027:
-                    </p>
-                    <div className="flex items-center gap-2 sm:gap-2.5">
-                      <div className="flex flex-col items-center justify-center rounded-xl border border-gold/40 bg-surface-3/90 px-3 py-2 sm:px-4 sm:py-2.5 min-w-[56px] shadow-sm">
-                        <span className="display text-xl sm:text-2xl font-bold text-gold tnum">
-                          {countdown.days}
-                        </span>
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">
-                          Days
-                        </span>
-                      </div>
-                      <span className="text-gold font-bold text-lg">:</span>
-                      <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-surface-3/90 px-3 py-2 sm:px-4 sm:py-2.5 min-w-[56px] shadow-sm">
-                        <span className="display text-xl sm:text-2xl font-bold text-ink tnum">
-                          {String(countdown.hours).padStart(2, "0")}
-                        </span>
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">
-                          Hours
-                        </span>
-                      </div>
-                      <span className="text-gold font-bold text-lg">:</span>
-                      <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-surface-3/90 px-3 py-2 sm:px-4 sm:py-2.5 min-w-[56px] shadow-sm">
-                        <span className="display text-xl sm:text-2xl font-bold text-ink tnum">
-                          {String(countdown.minutes).padStart(2, "0")}
-                        </span>
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">
-                          Mins
-                        </span>
-                      </div>
-                      <span className="text-gold font-bold text-lg">:</span>
-                      <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-surface-3/90 px-3 py-2 sm:px-4 sm:py-2.5 min-w-[56px] shadow-sm">
-                        <span className="display text-xl sm:text-2xl font-bold text-ink-2 tnum">
-                          {String(countdown.seconds).padStart(2, "0")}
-                        </span>
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">
-                          Secs
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
 
-              {/* Right Column: CTA Box (Opens automatically on 20 Dec 2026) */}
-              <div className="lg:min-w-[280px] flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-surface-3/80 p-6 text-center backdrop-blur-sm">
-                {!isDec20Opened ? (
-                  <div className="w-full space-y-3">
-                    <div className="flex items-center justify-center gap-2 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3.5 text-sm font-bold text-gold shadow-sm">
-                      <span className="text-base">🔒</span>
-                      <span>Opens 20 Dec 2026</span>
-                    </div>
-                    <p className="text-xs text-ink-3 text-center leading-relaxed">
-                      Early Bird memberships open automatically on 20 December 2026.
-                    </p>
-                    {user?.role === "ADMIN" && (
-                      <div className="pt-2 border-t border-white/10">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full justify-center text-xs border-gold/40 text-gold hover:bg-gold/10"
-                          onClick={handleJoin}
-                          loading={busy}
-                        >
-                          {busy ? "Processing..." : "Admin Test: Pay ₹599"}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="w-full">
-                    <Button
-                      variant="gold"
-                      size="lg"
-                      className="w-full justify-center text-sm font-bold shadow-lg shadow-gold/20"
-                      onClick={handleJoin}
-                      loading={busy}
-                    >
-                      {busy
-                        ? "Processing..."
-                        : isRenewal
-                          ? "Renew Membership — ₹599"
-                          : "Get Early Bird Membership — ₹599"}
-                    </Button>
-                    <p className="mt-2 text-[11px] text-ink-3">
-                      Valid for 30 days · All runs included
-                    </p>
-                  </div>
+              {/* Right Column: Clean Coming Soon Badge */}
+              <div className="sm:shrink-0 flex flex-col items-start sm:items-end">
+                <span className="inline-flex items-center gap-2 rounded-xl border border-gold/40 bg-gold/10 px-5 py-3 text-sm font-bold uppercase tracking-wider text-gold shadow-sm">
+                  <span className="text-base">✨</span>
+                  <span>Coming Soon</span>
+                </span>
+                {user?.role === "ADMIN" && (
+                  <button
+                    type="button"
+                    onClick={handleJoin}
+                    disabled={busy}
+                    className="mt-2 text-[11px] text-ink-3 hover:text-gold transition-colors underline cursor-pointer"
+                  >
+                    {busy ? "Processing..." : "Admin Test: Test Pay ₹599"}
+                  </button>
                 )}
               </div>
             </div>

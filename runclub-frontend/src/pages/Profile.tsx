@@ -50,19 +50,19 @@ export function Profile() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="max-w-md">
             <div className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/15 px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider text-gold">
-              {isMembershipActive ? "★ Active Member" : "⚡ Early Bird Offer"}
+              {isMembershipActive ? "★ Active Member" : "✨ Coming Soon"}
             </div>
             <h3 className="mt-2 text-lg font-bold text-ink">
               {isMembershipActive
-                ? "B² Monthly Membership (Early Bird)"
-                : "Upgrade to B² Membership"}
+                ? "B² Monthly Membership"
+                : "B² Club Membership"}
             </h3>
             <p className="mt-1 text-xs text-ink-3 leading-relaxed">
               {isMembershipActive
                 ? user.membership_expires_at
                   ? `Your membership is active and valid until ${fullDate(user.membership_expires_at)}. All weekly club runs are 100% free!`
                   : "Your membership is active. All weekly club runs are 100% free!"
-                : "Get 100% free entries to all weekly sessions and your official club running kit for only ₹599/mo (slashed from ₹699)."}
+                : "Unlock the full B² experience. Train with the community, race harder, and never pay per event again."}
             </p>
           </div>
           <div>
@@ -71,9 +71,9 @@ export function Profile() {
                 ✓ Free Event Passes Active
               </span>
             ) : (
-              <Link to="/" className={buttonClass("gold", "sm", "font-bold shadow-md shadow-gold/20")}>
-                Get Membership (₹1) →
-              </Link>
+              <span className="inline-flex items-center gap-1.5 rounded-xl border border-gold/40 bg-gold/10 px-4 py-2 text-xs font-bold text-gold">
+                ✨ Coming Soon
+              </span>
             )}
           </div>
         </div>
