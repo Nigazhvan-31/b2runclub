@@ -25,7 +25,7 @@ export function Profile() {
       {/* Identity */}
       <Card className="p-6">
         <div className="flex flex-wrap items-center gap-4">
-          <Avatar name={user.name} size={64} ring />
+          <Avatar name={user.name} size={64} ring goldRing={isMembershipActive} />
           <div className="min-w-0 flex-1">
             <h2 className="display text-2xl">{user.name}</h2>
             <p className="mt-1 truncate text-[13px] text-ink-3">{user.email}</p>
@@ -33,11 +33,6 @@ export function Profile() {
               <Badge color="var(--color-gold)">
                 {isMembershipActive ? "★ Official Member" : meta.label}
               </Badge>
-              {isMembershipActive && (
-                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">
-                  Early Bird Plan
-                </span>
-              )}
             </div>
           </div>
         </div>

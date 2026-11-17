@@ -717,10 +717,12 @@ export function Avatar({
   name,
   size = 36,
   ring = false,
+  goldRing = false,
 }: {
   name: string;
   size?: number;
   ring?: boolean;
+  goldRing?: boolean;
 }) {
   // Deterministic hue per person so faces stay recognisable across views.
   const hue = useMemo(() => {
@@ -740,8 +742,10 @@ export function Avatar({
     <div
       aria-hidden
       className={cn(
-        "grid shrink-0 place-items-center rounded-full font-bold",
-        ring && "ring-2 ring-gold/40",
+        "grid shrink-0 place-items-center rounded-full font-bold transition-all",
+        goldRing
+          ? "ring-2 ring-gold shadow-[0_0_14px_rgba(233,185,73,0.5)]"
+          : ring && "ring-2 ring-gold/40",
       )}
       style={{
         width: size,

@@ -731,6 +731,7 @@ export function RegisterDialog({
                 <span>
                   {payingAdults} × adult {inr(event.price)}
                   {role === "VOLUNTEER" && " (yours is comped)"}
+                  {isMembershipActive && role !== "VOLUNTEER" && " (yours is included with membership)"}
                 </span>
                 <span className="tnum">{inr(payingAdults * event.price)}</span>
               </div>
@@ -906,20 +907,22 @@ export function RegisterDialog({
 
         {/* Refund terms shown before payment, not after. The wording comes from
             lib/policies so it cannot drift from the refund page. */}
-        <div className="rounded-xl border border-gold/20 bg-gold/[0.04] p-4">
-          <p className="eyebrow mb-1.5 text-gold">Before you pay</p>
-          <p className="text-[13px] leading-relaxed text-ink-2">
-            {REFUND_ONE_LINER} Inside {REFUND_WINDOW_HOURS} hours the fee isn't refundable. If the
-            club cancels, you're refunded in full.{" "}
-            <Link
-              to="/refunds"
-              target="_blank"
-              className="font-medium text-gold underline-offset-2 hover:underline"
-            >
-              Full refund policy
-            </Link>
-          </p>
-        </div>
+        {!comped && (
+          <div className="rounded-xl border border-gold/20 bg-gold/[0.04] p-4">
+            <p className="eyebrow mb-1.5 text-gold">Before you pay</p>
+            <p className="text-[13px] leading-relaxed text-ink-2">
+              {REFUND_ONE_LINER} Inside {REFUND_WINDOW_HOURS} hours the fee isn't refundable. If the
+              club cancels, you're refunded in full.{" "}
+              <Link
+                to="/refunds"
+                target="_blank"
+                className="font-medium text-gold underline-offset-2 hover:underline"
+              >
+                Full refund policy
+              </Link>
+            </p>
+          </div>
+        )}
 
         {error && (
           <p className="rounded-lg border border-[color:var(--color-failed)]/30 bg-[color:var(--color-failed)]/8 px-3 py-2 text-[13px] text-ink-2">

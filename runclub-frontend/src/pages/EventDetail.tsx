@@ -51,7 +51,7 @@ const EVENT_STATUS_TINT: Record<string, string> = {
 export function EventDetail() {
   const { id = "" } = useParams();
   const [searchParams] = useSearchParams();
-  const { user, canRegister, isAdmin, role } = useAuth();
+  const { user, canRegister, isAdmin, role, isMembershipActive } = useAuth();
   const toast = useToast();
   const isPreview = searchParams.get("preview") === "true";
 
@@ -84,8 +84,8 @@ export function EventDetail() {
   const left = event ? countdown(event.date_time) : null;
   // Hooks must run unconditionally, so pass a harmless date before load.
   const remaining = useCountdown(event?.date_time ?? new Date(0).toISOString());
-  /** Volunteers pay nothing; the backend sets their registration to FREE. */
-  const comped = role === "VOLUNTEER";
+  /** Volunteers and active members pay nothing; the backend sets their registration to FREE. */
+  const comped = role === "VOLUNTEER" || isMembershipActive;
   /** Who may open the event-day console — matches the backend's CREW list. */
   const isCrew = role === "ADMIN" || role === "VOLUNTEER";
 
@@ -444,7 +444,9 @@ export function EventDetail() {
             {comped && event.price > 0 && (
               <p className="mt-2.5 flex items-start gap-1.5 text-[12px] leading-relaxed text-ink-2">
                 <SparkIcon className="mt-0.5 size-3.5 shrink-0 text-[color:var(--color-free)]" />
-                Comped as a club volunteer — you marshal, you don't pay.
+                {isMembershipActive
+                  ? "Included with your B² Club Membership — zero fees to pay!"
+                  : "Comped as a club volunteer — you marshal, you don't pay."}
               </p>
             )}
 
