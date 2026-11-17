@@ -104,12 +104,7 @@ export function MembershipCard() {
             <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
               {/* Left Column: Coming Soon Heading & Subtitle */}
               <div className="max-w-md">
-                <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-gold shadow-sm">
-                  <span className="inline-block size-1.5 rounded-full bg-gold animate-pulse" />
-                  Coming Soon
-                </div>
-
-                <h2 className="display mt-3 text-2xl font-bold sm:text-3xl lg:text-4xl text-ink tracking-tight">
+                <h2 className="display text-2xl font-bold sm:text-3xl lg:text-4xl text-ink tracking-tight">
                   Coming Soon
                 </h2>
 
