@@ -23,6 +23,8 @@ interface AuthValue {
    * poll voting; VISITOR and signed-out users are excluded.
    */
   isClubMember: boolean;
+  /** Whether the user has an active paid membership (grants free events and gold badge) */
+  isMembershipActive: boolean;
   ready: boolean;
   /**
    * True when the member's email address is still unconfirmed — what the banner
@@ -181,12 +183,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const needsVerification =
       !user || role === "VISITOR" ? false : Boolean(user.verification_required ?? !user.email_verified);
     const blocking = Boolean(user?.verification_required);
+    const isMembershipActive = Boolean(
+      user?.is_membership_active ||
+        (user?.membership_status === "ACTIVE" &&
+          (!user.membership_expires_at || new Date(user.membership_expires_at) > new Date()))
+    );
     return {
       user,
       role,
       isAdmin: role === "ADMIN",
       canRegister: role === "MEMBER" || role === "VOLUNTEER",
       isClubMember: role === "MEMBER" || role === "VOLUNTEER" || role === "ADMIN",
+      isMembershipActive,
       ready,
       needsVerification,
       verificationBlocksEntry: blocking,

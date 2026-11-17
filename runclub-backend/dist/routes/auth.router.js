@@ -330,6 +330,11 @@ const publicUser = (u) => ({
        same as !email_verified: with no mailer configured nothing is withheld,
        because the member could never receive the code. */
     verification_required: (0, verification_1.verificationRequired)(u),
+    membership_status: u.membership_status || "INACTIVE",
+    membership_tier: u.membership_tier || null,
+    membership_expires_at: u.membership_expires_at || null,
+    is_membership_active: u.membership_status === "ACTIVE" &&
+        (!u.membership_expires_at || new Date(u.membership_expires_at) > new Date()),
 });
 /**
  * 1. Read your own account.

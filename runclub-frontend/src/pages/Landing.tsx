@@ -18,6 +18,7 @@ import {
 import { Reveal } from "../components/motion";
 import { PillarCard } from "../components/PillarCard";
 import { Tilt } from "../components/tilt";
+import { MembershipCard } from "../components/MembershipCard";
 import { UpcomingScroller } from "../components/upcomingScroller";
 import { buttonClass, Card } from "../components/ui";
 import { api } from "../lib/api";
@@ -351,8 +352,13 @@ export function Landing() {
           </Link>
         </div>
 
+        {/* ── B² Club Membership (Early Bird) ── */}
+        <div className="mt-10">
+          <MembershipCard />
+        </div>
+
         {/* Next event spotlight — scroller over every upcoming session so users can slide to see the second and other events */}
-        <div ref={heroSpotlightRef} className="mt-14">
+        <div ref={heroSpotlightRef} className="mt-10">
           {user && branch === "CHENNAI" && !loading && upcoming.length === 0 ? (
             <Card className="speedlines card-glow relative mx-auto max-w-2xl overflow-hidden p-8 text-center border-sky-500/30 bg-gradient-to-b from-sky-500/10 via-surface/90 to-surface">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-sky-500/15 text-sky-300 border border-sky-500/30 mb-3">

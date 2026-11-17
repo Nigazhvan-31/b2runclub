@@ -46,6 +46,30 @@ export interface User {
    * server-side so the client cannot refuse somebody the server would allow.
    */
   verification_required?: boolean;
+  membership_status?: "INACTIVE" | "ACTIVE" | "EXPIRED";
+  membership_tier?: string | null;
+  membership_expires_at?: string | null;
+  is_membership_active?: boolean;
+}
+
+export interface MembershipPlan {
+  tier: string;
+  title: string;
+  badge: string;
+  original_price_inr: number;
+  price_inr: number;
+  amount_paise: number;
+  duration_days: number;
+  perks: string[];
+}
+
+export interface MembershipStatusResponse {
+  is_active: boolean;
+  status: "INACTIVE" | "ACTIVE" | "EXPIRED";
+  tier?: string | null;
+  expires_at?: string | null;
+  days_remaining: number;
+  plan: MembershipPlan;
 }
 
 /** Reply from /api/auth/verify/status. */

@@ -193,13 +193,16 @@ export function priceParty(input: {
         discount_min_party?: number | null;
     };
     guests: GuestInput[];
-    isVolunteer: boolean;
+    isVolunteer?: boolean;
+    isMember?: boolean;
+    isComped?: boolean;
 }): PartyPrice {
-    const { event, guests, isVolunteer } = input;
+    const { event, guests } = input;
+    const isFreeEntry = Boolean(input.isVolunteer || input.isMember || input.isComped);
 
     const adults = 1 + guests.filter((g) => g.kind === "ADULT").length;
     const kids = guests.filter((g) => g.kind === "KID").length;
-    const payingAdults = isVolunteer ? adults - 1 : adults;
+    const payingAdults = isFreeEntry ? Math.max(0, adults - 1) : adults;
     const partySize = adults + kids;
 
     const adultPaise = Math.round(event.price * 100);

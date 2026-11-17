@@ -55,6 +55,7 @@ const raceday_router_1 = __importDefault(require("./routes/raceday.router"));
 const results_router_1 = __importDefault(require("./routes/results.router"));
 const health_router_1 = __importDefault(require("./routes/health.router"));
 const db_router_1 = __importDefault(require("./routes/db.router"));
+const membership_router_1 = __importDefault(require("./routes/membership.router"));
 const reminders_1 = require("./utils/reminders");
 const holds_1 = require("./utils/holds");
 const app = (0, express_1.default)();
@@ -232,6 +233,7 @@ app.use("/api/raceday", raceday_router_1.default);
 app.use("/api/results", results_router_1.default);
 app.use("/api/health", health_router_1.default);
 app.use("/api/db", db_router_1.default);
+app.use("/api/membership", membership_router_1.default);
 // Serve uploaded gallery/logo images. Static and public by design — the files
 // are club photos, and the URLs are unguessable (random filenames).
 // UPLOAD_DIR is imported rather than recomputed here: the writer and the reader

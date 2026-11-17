@@ -1017,8 +1017,22 @@ router.post("/:id/register", requireRole(["MEMBER", "VOLUNTEER", "ADMIN"]), requ
             res.status(400).json({ error: parsedAnswers.error });
             return;
         }
+
+        const booker = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { membership_status: true, membership_expires_at: true, role: true },
+        });
+        const isMembershipActive =
+            booker?.membership_status === "ACTIVE" &&
+            (!booker.membership_expires_at || new Date(booker.membership_expires_at) > new Date());
+
         const isVolunteer = userRole === "VOLUNTEER";
-        const party = priceParty({ event, guests: extraGuests, isVolunteer });
+        const party = priceParty({
+            event,
+            guests: extraGuests,
+            isVolunteer,
+            isMember: isMembershipActive,
+        });
 
         /**
          * Capacity check, after the already-registered check so somebody who is

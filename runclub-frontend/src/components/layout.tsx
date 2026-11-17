@@ -274,7 +274,7 @@ export function BranchSwitcher() {
 /* ── User menu ────────────────────────────────────────────── */
 
 function UserMenu() {
-  const { user, logout } = useAuth();
+  const { user, logout, isMembershipActive } = useAuth();
   const { branch } = useBranch();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -305,8 +305,13 @@ function UserMenu() {
           <span className="block text-[13px] font-medium leading-tight text-ink">
             {user.name.split(" ")[0]}
           </span>
-          <span className={cn("block text-[10px] font-semibold uppercase tracking-wider", meta.tint)}>
-            {meta.label}
+          <span
+            className={cn(
+              "block text-[10px] font-semibold uppercase tracking-wider",
+              isMembershipActive ? "text-gold font-bold" : meta.tint,
+            )}
+          >
+            {isMembershipActive ? "Member ★" : meta.label}
           </span>
         </span>
       </button>

@@ -231,7 +231,7 @@ export function RegisterDialog({
   onClose: () => void;
   onDone: (registration: Registration) => void;
 }) {
-  const { user, patchUser, role, verificationBlocksEntry } = useAuth();
+  const { user, patchUser, role, verificationBlocksEntry, isMembershipActive } = useAuth();
   const toast = useToast();
 
   const [contact, setContact] = useState(user?.emergency_contact ?? "");
@@ -303,10 +303,11 @@ export function RegisterDialog({
    * they will be charged. Advisory only — the server prices it again from the
    * event and never trusts a figure from here.
    *
-   * Only the volunteer's own place is comped, so one adult comes off for them
-   * and everyone they bring pays.
+   * Volunteers and active B² members get their own place comped, so one adult
+   * comes off for them and everyone they bring pays.
    */
-  const payingAdults = role === "VOLUNTEER" ? adults - 1 : adults;
+  const isCompedUser = role === "VOLUNTEER" || isMembershipActive;
+  const payingAdults = isCompedUser ? Math.max(0, adults - 1) : adults;
   const gross = payingAdults * event.price + kids * (event.kid_price ?? 0);
 
   /*
@@ -552,11 +553,13 @@ export function RegisterDialog({
             <span aria-hidden className="mr-1.5 font-bold text-[color:var(--color-free)]">
               ★
             </span>
-            {role === "VOLUNTEER" && partySize > 1
-              ? "Your own place is comped, and nobody you have added is being charged — your ticket is issued immediately."
-              : role === "VOLUNTEER"
-                ? "Volunteers are comped — your ticket is issued immediately."
-                : "Nothing to pay — your ticket is issued immediately."}
+            {isMembershipActive
+              ? "Your active B² Club Membership covers your entry — zero fees to pay!"
+              : role === "VOLUNTEER" && partySize > 1
+                ? "Your own place is comped, and nobody you have added is being charged — your ticket is issued immediately."
+                : role === "VOLUNTEER"
+                  ? "Volunteers are comped — your ticket is issued immediately."
+                  : "Nothing to pay — your ticket is issued immediately."}
           </p>
         )}
 

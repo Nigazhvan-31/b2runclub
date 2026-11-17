@@ -382,6 +382,12 @@ const publicUser = (u: {
        same as !email_verified: with no mailer configured nothing is withheld,
        because the member could never receive the code. */
     verification_required: verificationRequired(u),
+    membership_status: (u as any).membership_status || "INACTIVE",
+    membership_tier: (u as any).membership_tier || null,
+    membership_expires_at: (u as any).membership_expires_at || null,
+    is_membership_active:
+        (u as any).membership_status === "ACTIVE" &&
+        (!(u as any).membership_expires_at || new Date((u as any).membership_expires_at) > new Date()),
 });
 
 /**

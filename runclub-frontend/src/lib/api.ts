@@ -45,6 +45,8 @@ import type {
   SweepResult,
   User,
   VerificationStatus,
+  MembershipPlan,
+  MembershipStatusResponse,
 } from "./types";
 
 /** Empty in dev — Vite proxies /api and /health to the Express backend. */
@@ -555,6 +557,40 @@ export const api = {
   /** Returns a full HTML document; rendered into a sandboxed iframe. */
   ticketHtml: (registrationId: string) =>
     request<string>(`/api/events/registration/${registrationId}/ticket`, { as: "text" }),
+
+  /* ── membership ─────────────────────────────────────────── */
+  membershipPlan: () =>
+    request<{ ok: boolean; plan: MembershipPlan }>("/api/membership/plan"),
+
+  membershipStatus: () =>
+    request<{ ok: boolean; membership: MembershipStatusResponse }>("/api/membership/status"),
+
+  createMembershipOrder: () =>
+    request<{
+      ok: boolean;
+      order_id: string;
+      amount_paise: number;
+      currency: string;
+      razorpay_key_id: string;
+      mock_mode: boolean;
+      payment_record_id: string;
+      plan: MembershipPlan;
+    }>("/api/membership/create-order", { method: "POST" }),
+
+  verifyMembershipPayment: (input: {
+    razorpay_order_id: string;
+    razorpay_payment_id?: string;
+    razorpay_signature?: string;
+  }) =>
+    request<{
+      ok: boolean;
+      message: string;
+      user: User;
+      membership: { tier: string; status: string; expires_at: string };
+    }>("/api/membership/verify", {
+      method: "POST",
+      body: input,
+    }),
 
   /* ── forum ──────────────────────────────────────────────── */
 

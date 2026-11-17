@@ -19,6 +19,7 @@ import racedayRouter from "./routes/raceday.router";
 import resultsRouter from "./routes/results.router";
 import healthRouter from "./routes/health.router";
 import dbRouter from "./routes/db.router";
+import membershipRouter from "./routes/membership.router";
 import { startReminderScheduler, sweepReminders } from "./utils/reminders";
 import { startHoldScheduler, sweepHolds } from "./utils/holds";
 
@@ -206,6 +207,7 @@ app.use("/api/raceday", racedayRouter);
 app.use("/api/results", resultsRouter);
 app.use("/api/health", healthRouter);
 app.use("/api/db", dbRouter);
+app.use("/api/membership", membershipRouter);
 
 // Serve uploaded gallery/logo images. Static and public by design — the files
 // are club photos, and the URLs are unguessable (random filenames).
