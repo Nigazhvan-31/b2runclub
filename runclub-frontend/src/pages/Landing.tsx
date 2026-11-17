@@ -352,10 +352,12 @@ export function Landing() {
           </Link>
         </div>
 
-        {/* ── B² Club Membership (Early Bird) ── */}
-        <div className="mt-10">
-          <MembershipCard />
-        </div>
+        {/* ── B² Club Membership (Early Bird) — Only visible after logging in ── */}
+        {user && (
+          <div className="mt-10">
+            <MembershipCard />
+          </div>
+        )}
 
         {/* Next event spotlight — scroller over every upcoming session so users can slide to see the second and other events */}
         <div ref={heroSpotlightRef} className="mt-10">

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
@@ -10,19 +10,15 @@ import { fullDate } from "../lib/format";
 
 export function MembershipCard() {
   const { user, isMembershipActive, refreshUser } = useAuth();
-  const navigate = useNavigate();
   const toast = useToast();
 
   const [busy, setBusy] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
 
-  const handleJoin = async () => {
-    if (!user) {
-      // Guide visitor to log in or register, then return back to complete checkout
-      navigate("/signup", { state: { from: "/?checkout=membership" } });
-      return;
-    }
+  // The membership section only appears after logging in
+  if (!user) return null;
 
+  const handleJoin = async () => {
     setBusy(true);
     try {
       // 1. Create membership order
@@ -121,37 +117,6 @@ export function MembershipCard() {
                     ₹599
                   </span>
                   <span className="text-[14px] font-semibold text-ink-2">/ month</span>
-                  <span className="ml-2 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400">
-                    Save ₹100
-                  </span>
-                </div>
-
-                {/* Key Benefits Grid */}
-                <div className="mt-6 grid gap-2.5 sm:grid-cols-2 text-[13px] text-ink-2">
-                  <div className="flex items-center gap-2">
-                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs text-gold font-bold">
-                      ✓
-                    </span>
-                    <span><strong>100% Free Entry</strong> to all weekly runs</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs text-gold font-bold">
-                      ✓
-                    </span>
-                    <span><strong>Official B² Kit & Jersey</strong></span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs text-gold font-bold">
-                      ✓
-                    </span>
-                    <span><strong>Verified Member Badge</strong> on profile</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs text-gold font-bold">
-                      ✓
-                    </span>
-                    <span><strong>Discounts</strong> at partner cafes & physio</span>
-                  </div>
                 </div>
               </div>
 
@@ -178,16 +143,7 @@ export function MembershipCard() {
                     </Link>
                   </div>
                 ) : (
-                  <div className="space-y-4 w-full">
-                    <div className="text-left">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-gold">
-                        Instant Activation
-                      </p>
-                      <p className="mt-1 text-xs text-ink-3 leading-relaxed">
-                        Pay securely with UPI, Cards, or NetBanking. Cancel or renew anytime.
-                      </p>
-                    </div>
-
+                  <div className="w-full">
                     <Button
                       variant="gold"
                       size="lg"
@@ -197,15 +153,6 @@ export function MembershipCard() {
                     >
                       {busy ? "Processing..." : "Get Early Bird Membership — ₹599"}
                     </Button>
-
-                    {!user && (
-                      <p className="text-[11px] text-ink-3">
-                        Already have an account?{" "}
-                        <Link to="/login" className="font-semibold text-gold hover:underline">
-                          Sign in
-                        </Link>
-                      </p>
-                    )}
                   </div>
                 )}
               </div>
