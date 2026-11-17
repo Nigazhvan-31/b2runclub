@@ -19,6 +19,7 @@ export const MEMBERSHIP_CONFIG = {
     price_inr: 599,
     amount_paise: 59900,
     duration_days: 30,
+    launch_date: "2026-12-20T00:00:00+05:30",
     perks: [
         "100% Free Entry to All Club Runs & Weekend Sessions",
         "Official B² Club Member Kit & Running Jersey",
@@ -98,6 +99,16 @@ router.post("/create-order", requireAccount, async (req: AuthRequest, res: Respo
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) {
             res.status(404).json({ error: "User not found" });
+            return;
+        }
+
+        const now = new Date();
+        const launchDate = new Date(MEMBERSHIP_CONFIG.launch_date);
+        if (now < launchDate && req.user?.role !== "ADMIN") {
+            res.status(403).json({
+                error: "Early Bird Membership registrations open on 20 December 2026.",
+                launch_date: MEMBERSHIP_CONFIG.launch_date,
+            });
             return;
         }
 
@@ -415,6 +426,30 @@ router.get("/admin/payments", requireRole(["ADMIN"]), async (_req: AuthRequest, 
         });
     } catch (err: any) {
         res.status(500).json({ error: err.message || "Failed to load membership payments" });
+    }
+});
+
+/**
+ * 7. Admin: Reset own test membership back to inactive
+ */
+router.post("/admin/reset-my-membership", requireRole(["ADMIN"]), async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const userId = req.user!.id;
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                membership_status: "INACTIVE",
+                membership_tier: null,
+                membership_expires_at: null,
+            },
+        });
+        await prisma.membershipPayment.updateMany({
+            where: { user_id: userId },
+            data: { status: "EXPIRED" },
+        });
+        res.json({ ok: true, message: "Test membership reset successfully." });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message || "Failed to reset membership" });
     }
 });
 

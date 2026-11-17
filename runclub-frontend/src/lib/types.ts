@@ -60,6 +60,7 @@ export interface MembershipPlan {
   price_inr: number;
   amount_paise: number;
   duration_days: number;
+  launch_date?: string;
   perks: string[];
 }
 

@@ -6,7 +6,10 @@ import { api } from "../lib/api";
 import { openCheckout, isMockPayment } from "../lib/razorpay";
 import { Card, Button, useToast } from "./ui";
 import { Confetti } from "./motion";
+import { useCountdown } from "../lib/motion";
 import { fullDate } from "../lib/format";
+
+export const MEMBERSHIP_LAUNCH_DATE_ISO = "2026-12-20T00:00:00+05:30";
 
 export function MembershipCard() {
   const { user, isMembershipActive, refreshUser } = useAuth();
@@ -14,9 +17,26 @@ export function MembershipCard() {
 
   const [busy, setBusy] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  const countdown = useCountdown(MEMBERSHIP_LAUNCH_DATE_ISO);
+  const isLaunched = countdown.done;
 
   // The membership section only appears after logging in
   if (!user) return null;
+
+  const handleResetTest = async () => {
+    setResetting(true);
+    try {
+      await api.adminResetMyMembership();
+      await refreshUser();
+      toast("Test membership reset! You are now previewing the runner countdown view.", "ok");
+    } catch {
+      toast("Could not reset test membership", "err");
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const handleJoin = async () => {
     setBusy(true);
@@ -101,6 +121,16 @@ export function MembershipCard() {
                     Valid until {fullDate(user.membership_expires_at)} · Renews every 30 days
                   </p>
                 )}
+                {user?.role === "ADMIN" && (
+                  <button
+                    type="button"
+                    onClick={handleResetTest}
+                    disabled={resetting}
+                    className="block text-[11px] text-ink-3 hover:text-gold transition-colors underline pt-1 text-left cursor-pointer"
+                  >
+                    {resetting ? "Resetting..." : "Admin: Reset test membership to preview countdown timer"}
+                  </button>
+                )}
               </div>
               <Link
                 to="/events"
@@ -139,11 +169,15 @@ export function MembershipCard() {
             />
 
             <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-              {/* Left Column: Heading, Perks, Details */}
+              {/* Left Column: Heading, Perks, Details & Countdown */}
               <div className="max-w-xl">
                 <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-gold shadow-sm">
                   <span className="inline-block size-1.5 rounded-full bg-gold animate-pulse" />
-                  {isRenewal ? "Membership Expired · Renew for 30 Days" : "Early Bird Offer · Limited Slots"}
+                  {!isLaunched
+                    ? "Launching 20 December 2026 · Early Bird"
+                    : isRenewal
+                      ? "Membership Expired · Renew for 30 Days"
+                      : "Early Bird Offer · Limited Slots"}
                 </div>
 
                 <h2 className="display mt-3 text-2xl font-bold sm:text-3xl lg:text-4xl text-ink tracking-tight">
@@ -164,28 +198,99 @@ export function MembershipCard() {
                   </span>
                   <span className="text-[14px] font-semibold text-ink-2">/ month</span>
                 </div>
+
+                {/* Countdown Timer (Visible until 20 Dec 2026) */}
+                {!isLaunched && (
+                  <div className="mt-6">
+                    <p className="eyebrow text-gold font-bold mb-2.5 flex items-center gap-1.5">
+                      <span>⏳</span> Early Bird Opens In:
+                    </p>
+                    <div className="flex items-center gap-2 sm:gap-2.5">
+                      <div className="flex flex-col items-center justify-center rounded-xl border border-gold/40 bg-surface-3/90 px-3 py-2 sm:px-4 sm:py-2.5 min-w-[56px] shadow-sm">
+                        <span className="display text-xl sm:text-2xl font-bold text-gold tnum">
+                          {countdown.days}
+                        </span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">
+                          Days
+                        </span>
+                      </div>
+                      <span className="text-gold font-bold text-lg">:</span>
+                      <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-surface-3/90 px-3 py-2 sm:px-4 sm:py-2.5 min-w-[56px] shadow-sm">
+                        <span className="display text-xl sm:text-2xl font-bold text-ink tnum">
+                          {String(countdown.hours).padStart(2, "0")}
+                        </span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">
+                          Hours
+                        </span>
+                      </div>
+                      <span className="text-gold font-bold text-lg">:</span>
+                      <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-surface-3/90 px-3 py-2 sm:px-4 sm:py-2.5 min-w-[56px] shadow-sm">
+                        <span className="display text-xl sm:text-2xl font-bold text-ink tnum">
+                          {String(countdown.minutes).padStart(2, "0")}
+                        </span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">
+                          Mins
+                        </span>
+                      </div>
+                      <span className="text-gold font-bold text-lg">:</span>
+                      <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-surface-3/90 px-3 py-2 sm:px-4 sm:py-2.5 min-w-[56px] shadow-sm">
+                        <span className="display text-xl sm:text-2xl font-bold text-ink-2 tnum">
+                          {String(countdown.seconds).padStart(2, "0")}
+                        </span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">
+                          Secs
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Right Column: CTA Box */}
               <div className="lg:min-w-[280px] flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-surface-3/80 p-6 text-center backdrop-blur-sm">
-                <div className="w-full">
-                  <Button
-                    variant="gold"
-                    size="lg"
-                    className="w-full justify-center text-sm font-bold shadow-lg shadow-gold/20"
-                    onClick={handleJoin}
-                    loading={busy}
-                  >
-                    {busy
-                      ? "Processing..."
-                      : isRenewal
-                        ? "Renew Membership — ₹599"
-                        : "Get Early Bird Membership — ₹599"}
-                  </Button>
-                  <p className="mt-2 text-[11px] text-ink-3">
-                    Valid for 30 days · All runs included
-                  </p>
-                </div>
+                {!isLaunched ? (
+                  <div className="w-full space-y-3">
+                    <div className="flex items-center justify-center gap-2 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3.5 text-sm font-bold text-gold shadow-sm">
+                      <span className="text-base">🔒</span>
+                      <span>Opens 20 Dec 2026</span>
+                    </div>
+                    <p className="text-xs text-ink-3 text-center leading-relaxed">
+                      Early Bird memberships unlock automatically on 20 December 2026.
+                    </p>
+                    {user?.role === "ADMIN" && (
+                      <div className="pt-2 border-t border-white/10">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-center text-xs border-gold/40 text-gold hover:bg-gold/10"
+                          onClick={handleJoin}
+                          loading={busy}
+                        >
+                          {busy ? "Processing..." : "Admin Test: Pay ₹599"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="w-full">
+                    <Button
+                      variant="gold"
+                      size="lg"
+                      className="w-full justify-center text-sm font-bold shadow-lg shadow-gold/20"
+                      onClick={handleJoin}
+                      loading={busy}
+                    >
+                      {busy
+                        ? "Processing..."
+                        : isRenewal
+                          ? "Renew Membership — ₹599"
+                          : "Get Early Bird Membership — ₹599"}
+                    </Button>
+                    <p className="mt-2 text-[11px] text-ink-3">
+                      Valid for 30 days · All runs included
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </Card>

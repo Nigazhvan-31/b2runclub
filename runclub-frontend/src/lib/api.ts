@@ -596,6 +596,11 @@ export const api = {
   adminMembershipPayments: () =>
     request<PaidMembershipsResponse>("/api/membership/admin/payments"),
 
+  adminResetMyMembership: () =>
+    request<{ ok: boolean; message: string }>("/api/membership/admin/reset-my-membership", {
+      method: "POST",
+    }),
+
   /* ── forum ──────────────────────────────────────────────── */
 
   posts: () => request<Post[]>("/api/forum/posts"),
