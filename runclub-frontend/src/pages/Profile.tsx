@@ -25,7 +25,7 @@ export function Profile() {
       {/* Identity */}
       <Card className="p-6">
         <div className="flex flex-wrap items-center gap-4">
-          <Avatar name={user.name} size={64} ring goldRing={isMembershipActive} />
+          <Avatar name={user.name} size={64} goldRing={isMembershipActive} />
           <div className="min-w-0 flex-1">
             <h2 className="display text-2xl">{user.name}</h2>
             <p className="mt-1 truncate text-[13px] text-ink-3">{user.email}</p>

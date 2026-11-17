@@ -183,10 +183,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const needsVerification =
       !user || role === "VISITOR" ? false : Boolean(user.verification_required ?? !user.email_verified);
     const blocking = Boolean(user?.verification_required);
+    const hasExpired = user?.membership_expires_at ? new Date(user.membership_expires_at) <= new Date() : false;
     const isMembershipActive = Boolean(
-      user?.is_membership_active ||
-        (user?.membership_status === "ACTIVE" &&
-          (!user.membership_expires_at || new Date(user.membership_expires_at) > new Date()))
+      !hasExpired && (user?.is_membership_active || user?.membership_status === "ACTIVE")
     );
     return {
       user,

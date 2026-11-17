@@ -71,6 +71,44 @@ export function MembershipCard() {
     }
   };
 
+  if (isMembershipActive) {
+    return (
+      <section className="relative mx-auto max-w-5xl px-4 py-3 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <Card className="relative overflow-hidden border border-gold/40 bg-gradient-to-r from-surface-2/95 via-surface/90 to-surface-2/95 p-5 sm:p-6 shadow-[0_0_35px_rgba(233,185,73,0.12)]">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/15 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-gold">
+                  ★ Active B² Member
+                </div>
+                <p className="text-[14px] font-medium text-ink">
+                  Your monthly membership is active · 100% Free entry to all club runs
+                </p>
+                {user?.membership_expires_at && (
+                  <p className="text-xs text-ink-3">
+                    Valid until {fullDate(user.membership_expires_at)} · Renews every 30 days
+                  </p>
+                )}
+              </div>
+              <Link
+                to="/events"
+                className="inline-flex items-center justify-center shrink-0 rounded-xl bg-gold px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-[color:var(--color-gold-ink)] transition-transform hover:scale-[1.02]"
+              >
+                Browse Free Runs →
+              </Link>
+            </div>
+          </Card>
+        </motion.div>
+      </section>
+    );
+  }
+
+  const isRenewal = Boolean(user?.membership_expires_at);
+
   return (
     <>
       <Confetti show={celebrate} />
@@ -97,7 +135,7 @@ export function MembershipCard() {
               <div className="max-w-xl">
                 <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-gold shadow-sm">
                   <span className="inline-block size-1.5 rounded-full bg-gold animate-pulse" />
-                  Early Bird Offer · Limited Slots
+                  {isRenewal ? "Membership Expired · Renew for 30 Days" : "Early Bird Offer · Limited Slots"}
                 </div>
 
                 <h2 className="display mt-3 text-2xl font-bold sm:text-3xl lg:text-4xl text-ink tracking-tight">
@@ -114,47 +152,32 @@ export function MembershipCard() {
                     ₹699
                   </span>
                   <span className="display text-4xl sm:text-5xl font-extrabold text-gold tracking-tight">
-                    ₹1
+                    ₹599
                   </span>
-                  <span className="text-[14px] font-semibold text-ink-2">/ month (test)</span>
+                  <span className="text-[14px] font-semibold text-ink-2">/ month</span>
                 </div>
               </div>
 
-              {/* Right Column: CTA Box / Active Member Status */}
+              {/* Right Column: CTA Box */}
               <div className="lg:min-w-[280px] flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-surface-3/80 p-6 text-center backdrop-blur-sm">
-                {isMembershipActive ? (
-                  <div className="space-y-3 w-full">
-                    <div className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-gold">
-                      ★ Active B² Member
-                    </div>
-                    <p className="text-sm text-ink-2 font-medium">
-                      Your Early Bird membership is active.
-                    </p>
-                    {user?.membership_expires_at && (
-                      <p className="text-xs text-ink-3">
-                        Valid until {fullDate(user.membership_expires_at)}
-                      </p>
-                    )}
-                    <Link
-                      to="/events"
-                      className="mt-2 block w-full rounded-xl bg-gold px-4 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-[color:var(--color-gold-ink)] transition-transform hover:scale-[1.02]"
-                    >
-                      Browse Free Runs →
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="w-full">
-                    <Button
-                      variant="gold"
-                      size="lg"
-                      className="w-full justify-center text-sm font-bold shadow-lg shadow-gold/20"
-                      onClick={handleJoin}
-                      loading={busy}
-                    >
-                      {busy ? "Processing..." : "Get Early Bird Membership — ₹1"}
-                    </Button>
-                  </div>
-                )}
+                <div className="w-full">
+                  <Button
+                    variant="gold"
+                    size="lg"
+                    className="w-full justify-center text-sm font-bold shadow-lg shadow-gold/20"
+                    onClick={handleJoin}
+                    loading={busy}
+                  >
+                    {busy
+                      ? "Processing..."
+                      : isRenewal
+                        ? "Renew Membership — ₹599"
+                        : "Get Early Bird Membership — ₹599"}
+                  </Button>
+                  <p className="mt-2 text-[11px] text-ink-3">
+                    Valid for 30 days · All runs included
+                  </p>
+                </div>
               </div>
             </div>
           </Card>

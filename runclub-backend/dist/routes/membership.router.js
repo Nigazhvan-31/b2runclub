@@ -16,8 +16,8 @@ exports.MEMBERSHIP_CONFIG = {
     title: "B² Monthly Membership",
     badge: "Early Bird Offer",
     original_price_inr: 699,
-    price_inr: 1,
-    amount_paise: 100,
+    price_inr: 599,
+    amount_paise: 59900,
     duration_days: 30,
     perks: [
         "100% Free Entry to All Club Runs & Weekend Sessions",
@@ -178,7 +178,14 @@ router.post("/verify", auth_1.requireAccount, async (req, res) => {
         }
         // Calculate 30-day membership validity
         const now = new Date();
-        const expiresAt = new Date(+now + exports.MEMBERSHIP_CONFIG.duration_days * 24 * 60 * 60 * 1000);
+        const currentUser = await prisma_1.default.user.findUnique({
+            where: { id: userId },
+            select: { membership_expires_at: true },
+        });
+        const baseDate = currentUser?.membership_expires_at && new Date(currentUser.membership_expires_at) > now
+            ? new Date(currentUser.membership_expires_at)
+            : now;
+        const expiresAt = new Date(+baseDate + exports.MEMBERSHIP_CONFIG.duration_days * 24 * 60 * 60 * 1000);
         // Update payment record
         await prisma_1.default.membershipPayment.updateMany({
             where: {

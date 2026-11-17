@@ -745,7 +745,7 @@ export function Avatar({
         "grid shrink-0 place-items-center rounded-full font-bold transition-all",
         goldRing
           ? "ring-2 ring-gold shadow-[0_0_14px_rgba(233,185,73,0.5)]"
-          : ring && "ring-2 ring-gold/40",
+          : ring && "ring-1 ring-white/15",
       )}
       style={{
         width: size,

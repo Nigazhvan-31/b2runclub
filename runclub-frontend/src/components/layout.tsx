@@ -300,7 +300,7 @@ function UserMenu() {
         aria-label="Account menu"
         className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors hover:bg-white/6"
       >
-        <Avatar name={user.name} size={30} ring={isMembershipActive} goldRing={isMembershipActive} />
+        <Avatar name={user.name} size={30} goldRing={isMembershipActive} />
         <span className="hidden text-left sm:block">
           <span className="block text-[13px] font-medium leading-tight text-ink">
             {user.name.split(" ")[0]}
