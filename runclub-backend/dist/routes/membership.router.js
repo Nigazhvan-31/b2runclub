@@ -16,8 +16,8 @@ exports.MEMBERSHIP_CONFIG = {
     title: "B² Monthly Membership",
     badge: "Early Bird Offer",
     original_price_inr: 699,
-    price_inr: 599,
-    amount_paise: 59900,
+    price_inr: 1,
+    amount_paise: 100,
     duration_days: 30,
     perks: [
         "100% Free Entry to All Club Runs & Weekend Sessions",

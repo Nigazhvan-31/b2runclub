@@ -114,9 +114,9 @@ export function MembershipCard() {
                     ₹699
                   </span>
                   <span className="display text-4xl sm:text-5xl font-extrabold text-gold tracking-tight">
-                    ₹599
+                    ₹1
                   </span>
-                  <span className="text-[14px] font-semibold text-ink-2">/ month</span>
+                  <span className="text-[14px] font-semibold text-ink-2">/ month (test)</span>
                 </div>
               </div>
 
@@ -151,7 +151,7 @@ export function MembershipCard() {
                       onClick={handleJoin}
                       loading={busy}
                     >
-                      {busy ? "Processing..." : "Get Early Bird Membership — ₹599"}
+                      {busy ? "Processing..." : "Get Early Bird Membership — ₹1"}
                     </Button>
                   </div>
                 )}

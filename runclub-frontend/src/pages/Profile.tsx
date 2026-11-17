@@ -77,7 +77,7 @@ export function Profile() {
               </span>
             ) : (
               <Link to="/" className={buttonClass("gold", "sm", "font-bold shadow-md shadow-gold/20")}>
-                Get Membership (₹599) →
+                Get Membership (₹1) →
               </Link>
             )}
           </div>
