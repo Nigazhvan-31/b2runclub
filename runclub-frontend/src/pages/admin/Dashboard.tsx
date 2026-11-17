@@ -23,6 +23,7 @@ import {
 } from "../../components/ui";
 import { HeroVideoPanel } from "../../components/heroVideoPanel";
 import { MailerPanel } from "../../components/mailerPanel";
+import { MembershipPaymentsPanel } from "../../components/admin/MembershipPaymentsPanel";
 import { matchesBranch, useBranch } from "../../lib/branch";
 import { api } from "../../lib/api";
 import { cn, compact, eventDate, inr, isPast } from "../../lib/format";
@@ -426,6 +427,9 @@ export function AdminDashboard() {
               sub="Revenue ÷ paid registrations"
             />
           </div>
+
+          {/* Paid Memberships Tracking */}
+          <MembershipPaymentsPanel adminBranch={adminBranch} />
 
           {/* Charts */}
           <div className="mt-5 grid items-start gap-5 lg:grid-cols-2">

@@ -44,10 +44,18 @@ export function MembershipCard() {
         keyId: orderRes.razorpay_key_id,
         orderId: orderRes.order_id,
         amountPaise: orderRes.amount_paise,
-        eventTitle: "B² Club Monthly Membership (Early Bird)",
+        eventTitle: "B² Club Monthly Membership",
+        description: "B² Club Monthly Membership — ₹599",
         userName: user.name,
         userEmail: user.email,
         contact: user.phone,
+        notes: {
+          payment_type: "MEMBERSHIP",
+          product: "B² Club Monthly Membership",
+          member_name: user.name,
+          member_email: user.email,
+          member_phone: user.phone || "Not provided",
+        },
       });
 
       // 3. Verify signature on backend

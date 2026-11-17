@@ -87,9 +87,11 @@ interface OpenOptions {
   /** In paise — the smallest currency unit, which is what Razorpay expects. */
   amountPaise: number;
   eventTitle: string;
+  description?: string;
   userName: string;
   userEmail: string;
   contact?: string | null;
+  notes?: Record<string, string>;
 }
 
 /**
@@ -123,13 +125,13 @@ export function openCheckout(opts: OpenOptions): Promise<CheckoutResult> {
       amount: opts.amountPaise,
       currency: "INR",
       name: CLUB_NAME,
-      description: opts.eventTitle,
+      description: opts.description ?? opts.eventTitle,
       prefill: {
         name: opts.userName,
         email: opts.userEmail,
         contact: opts.contact ?? undefined,
       },
-      notes: { event: opts.eventTitle },
+      notes: opts.notes ?? { event: opts.eventTitle },
       theme: { color: "#e9b949" },
       handler: (response: unknown) => {
         settled = true;

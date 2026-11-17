@@ -47,6 +47,7 @@ import type {
   VerificationStatus,
   MembershipPlan,
   MembershipStatusResponse,
+  PaidMembershipsResponse,
 } from "./types";
 
 /** Empty in dev — Vite proxies /api and /health to the Express backend. */
@@ -591,6 +592,9 @@ export const api = {
       method: "POST",
       body: input,
     }),
+
+  adminMembershipPayments: () =>
+    request<PaidMembershipsResponse>("/api/membership/admin/payments"),
 
   /* ── forum ──────────────────────────────────────────────── */
 

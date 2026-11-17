@@ -106,9 +106,13 @@ router.post("/create-order", auth_1.requireAccount, async (req, res) => {
                 receipt: `mem_${userId.slice(0, 8)}_${Date.now()}`,
                 payment_capture: 1,
                 notes: {
-                    userId,
                     type: "MEMBERSHIP",
+                    product: "B² Club Monthly Membership",
                     tier: exports.MEMBERSHIP_CONFIG.tier,
+                    user_id: userId,
+                    user_name: user.name,
+                    user_email: user.email,
+                    user_phone: user.phone || "Not provided",
                 },
             };
             try {
@@ -281,6 +285,107 @@ router.post("/admin/grant", (0, auth_1.requireRole)(["ADMIN"]), async (req, res)
     }
     catch (err) {
         res.status(500).json({ error: err.message || "Failed to grant membership" });
+    }
+});
+/**
+ * 6. Admin: List All Paid Memberships with Contact Info & Razorpay IDs
+ */
+router.get("/admin/payments", (0, auth_1.requireRole)(["ADMIN"]), async (_req, res) => {
+    try {
+        const payments = await prisma_1.default.membershipPayment.findMany({
+            where: {
+                status: "PAID",
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true,
+                        branch: true,
+                        membership_status: true,
+                        membership_expires_at: true,
+                    },
+                },
+            },
+            orderBy: {
+                created_at: "desc",
+            },
+        });
+        // Also fetch active members to ensure anyone granted active membership is listed
+        const activeUsers = await prisma_1.default.user.findMany({
+            where: {
+                membership_status: "ACTIVE",
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                branch: true,
+                membership_status: true,
+                membership_expires_at: true,
+            },
+        });
+        const now = new Date();
+        const rows = payments.map((p) => {
+            const expires = p.expires_at || p.user?.membership_expires_at;
+            const isActive = expires ? new Date(expires) > now : false;
+            return {
+                id: p.id,
+                user_id: p.user_id,
+                name: p.user?.name ?? "Unknown",
+                email: p.user?.email ?? "—",
+                phone: p.user?.phone ?? "—",
+                branch: p.user?.branch ?? "MADURAI",
+                amount_inr: Math.round(p.amount_paise / 100),
+                tier: p.tier,
+                status: isActive ? "ACTIVE" : "EXPIRED",
+                is_active: isActive,
+                razorpay_order_id: p.razorpay_order_id ?? "—",
+                razorpay_payment_id: p.razorpay_payment_id ?? "—",
+                paid_at: p.started_at || p.created_at,
+                expires_at: expires,
+            };
+        });
+        const seenUserIds = new Set(rows.map((r) => r.user_id));
+        for (const u of activeUsers) {
+            if (!seenUserIds.has(u.id)) {
+                const expires = u.membership_expires_at;
+                const isActive = expires ? new Date(expires) > now : true;
+                rows.push({
+                    id: `active_${u.id}`,
+                    user_id: u.id,
+                    name: u.name,
+                    email: u.email,
+                    phone: u.phone ?? "—",
+                    branch: u.branch,
+                    amount_inr: 599,
+                    tier: "MONTHLY_EARLY_BIRD",
+                    status: isActive ? "ACTIVE" : "EXPIRED",
+                    is_active: isActive,
+                    razorpay_order_id: "—",
+                    razorpay_payment_id: "—",
+                    paid_at: u.membership_expires_at
+                        ? new Date(+new Date(u.membership_expires_at) - 30 * 24 * 60 * 60 * 1000)
+                        : new Date(),
+                    expires_at: u.membership_expires_at,
+                });
+            }
+        }
+        const totalRevenue = rows.reduce((sum, r) => sum + r.amount_inr, 0);
+        const activeCount = rows.filter((r) => r.is_active).length;
+        res.json({
+            ok: true,
+            total_count: rows.length,
+            active_count: activeCount,
+            total_revenue_inr: totalRevenue,
+            payments: rows,
+        });
+    }
+    catch (err) {
+        res.status(500).json({ error: err.message || "Failed to load membership payments" });
     }
 });
 exports.default = router;

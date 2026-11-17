@@ -72,6 +72,31 @@ export interface MembershipStatusResponse {
   plan: MembershipPlan;
 }
 
+export interface PaidMembershipRecord {
+  id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  phone: string;
+  branch: Branch;
+  amount_inr: number;
+  tier: string;
+  status: "ACTIVE" | "EXPIRED";
+  is_active: boolean;
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  paid_at: string;
+  expires_at: string | null;
+}
+
+export interface PaidMembershipsResponse {
+  ok: boolean;
+  total_count: number;
+  active_count: number;
+  total_revenue_inr: number;
+  payments: PaidMembershipRecord[];
+}
+
 /** Reply from /api/auth/verify/status. */
 export interface VerificationStatus {
   email: string;
